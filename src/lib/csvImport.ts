@@ -69,10 +69,14 @@ const lower = (h: string) => h.trim().toLowerCase();
 
 /** The file's header row (bank exports sometimes start with an account summary) and the rows after it. */
 export function readCsv(text: string): CsvFile {
-  const all = parseCSV(text.replace(/^﻿/, '')).map((r) => r.map((c) => c.trim()));
+  const clean = text.replace(/^﻿/, '');
+  // Banks that write a decimal comma separate columns with semicolons.
+  const first = clean.split(/\r?\n/).find((l) => l.trim()) ?? '';
+  const delimiter = (first.match(/;/g)?.length ?? 0) > (first.match(/,/g)?.length ?? 0) ? ';' : ',';
+  const all = parseCSV(clean, delimiter).map((r) => r.map((c) => c.trim()));
   const at = all.slice(0, 15).findIndex((r) => {
     const h = r.map(lower);
-    return h.some((c) => /date/.test(c)) && h.some((c) => /amount|debit|credit|withdrawal|deposit/.test(c));
+    return h.some((c) => /date|datum|fecha/.test(c)) && h.some((c) => /amount|debit|credit|withdrawal|deposit|bedrag|importe|monto/.test(c));
   });
   const start = at < 0 ? 0 : at;
   const headers = all[start] ?? [];
@@ -151,13 +155,13 @@ const isPaymentType = (type: string) => /payment|transfer/i.test(type) || /^othe
  */
 export function detectMapping(file: CsvFile): { mapping: CsvMapping | null; missing: string[] } {
   const { headers, rows } = file;
-  const date = findHeader(headers, [/^(transaction|trans\.?) ?date$/, /^date$/, /transaction date|trans\.? date/, /^posted?( date)?$/, /date/]);
+  const date = findHeader(headers, [/^(transaction|trans\.?) ?date$/, /^date$/, /transaction date|trans\.? date/, /^posted?( date)?$/, /date/, /^(datum|fecha)$/, /datum|fecha/]);
   const description = findHeader(
     headers,
-    [/^description$/, /^(merchant|payee|name|details|narrative|memo)$/, /description|merchant|payee|details/],
-    /card|account|category|type|date|amount/,
+    [/^description$/, /^(merchant|payee|name|details|narrative|memo)$/, /description|merchant|payee|details/, /^(omschrijving|naam|descripci[oó]n|concepto)$/, /omschrijving|descripci[oó]n|concepto/],
+    /card|account|category|type|date|amount|datum|fecha|bedrag|importe/,
   );
-  const amount = findHeader(headers, [/^amount$/, /^amount \(.*\)$/, /amount/], /balance|original/);
+  const amount = findHeader(headers, [/^amount$/, /^amount \(.*\)$/, /amount/, /^(bedrag|importe|monto)$/, /bedrag|importe|monto/], /balance|original|saldo/);
   const debit = findHeader(headers, [/^debit$/, /debit|withdrawal|money out|paid out|charge/]);
   const credit = findHeader(headers, [/^credit$/, /credit|deposit|money in|paid in/], /card/);
   const category = findHeader(headers, [/^category$/, /category/]);
