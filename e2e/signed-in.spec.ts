@@ -7,7 +7,8 @@ import { signInTestUser } from '@huishouden/pwa-kit/e2e';
 test.skip(!process.env.HH_STAGING_SA, 'signed-in tests run against staging, in CI');
 
 async function budgetSettings(page: Page) {
-  await page.locator('hh-app-bar').getByRole('button', { name: 'Spending settings' }).click({ timeout: 20_000 });
+  await page.locator('hh-app-bar').getByRole('button', { name: /^Signed in as/ }).click({ timeout: 20_000 });
+  await page.locator('hh-app-bar').getByRole('button', { name: 'Spending settings' }).click();
   const settings = page.getByRole('dialog', { name: 'Settings' });
   await settings.getByRole('button', { name: 'Budget', exact: true }).click();
   return settings;
@@ -51,7 +52,7 @@ test.describe('as a helper', () => {
     await signInTestUser(page, { email: 'test-helper@example.com' });
     await expect(page.getByText('Only admins and members can see the household’s money.')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole('link', { name: 'Open Huishouden' })).toBeVisible();
-    await expect(page.locator('hh-app-bar').getByRole('button', { name: 'Spending settings' })).toHaveCount(0);
+    await expect(page.locator('hh-app-bar [part="app-settings"]')).toHaveCount(0);
     expect(reads).toEqual([]);
   });
 });
