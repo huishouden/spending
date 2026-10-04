@@ -7,7 +7,9 @@ import { signInTestUser } from '@huishouden/pwa-kit/e2e';
 test.skip(!process.env.HH_STAGING_SA, 'signed-in tests run against staging, in CI');
 
 async function budgetSettings(page: Page) {
-  await page.locator('hh-app-bar').getByRole('button', { name: /^Signed in as/ }).click({ timeout: 20_000 });
+  // The bar holds Spending settings once the household's spending has loaded (the loading screen's bar has none).
+  await expect(page.locator('hh-app-bar [part="app-settings"]')).toBeAttached({ timeout: 20_000 });
+  await page.locator('hh-app-bar [data-trigger]').click();
   await page.locator('hh-app-bar').getByRole('button', { name: 'Spending settings' }).click();
   const settings = page.getByRole('dialog', { name: 'Settings' });
   await settings.getByRole('button', { name: 'Budget', exact: true }).click();
