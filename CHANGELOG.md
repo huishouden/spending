@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.7.0](https://github.com/huishouden/spending/compare/v2.6.0...v2.7.0) (2026-10-04)
+
+
+### Features
+
+* **inbox:** "Last import: N added, M need review", a review sheet, Undo last import ([#50](https://github.com/huishouden/spending/issues/50)) ([d539f6f](https://github.com/huishouden/spending/commit/d539f6fbcf95cd521f6cf43e37ea6da03b9453c5))
+
+
+### Bug Fixes
+
+* **inbox:** Google's window never fails silently; a way back to it when it is out of sight ([#52](https://github.com/huishouden/spending/issues/52)) ([d080b4f](https://github.com/huishouden/spending/commit/d080b4f20219fd3541016ad9c1abd697e3282f26))
+
 ## [2.6.0](https://github.com/huishouden/spending/compare/v2.5.1...v2.6.0) (2026-10-04)
 
 
