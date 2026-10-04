@@ -6,13 +6,14 @@ import { cardClass, ErrorNotice, iconButton, primaryButton } from '@huishouden/p
 import type { SpendingStore } from '../data/store';
 import type { useEmailCheck } from '../data/useEmailCheck';
 import { lastUpdate, money, standing, type MonthKey, type MonthSummary } from '../lib/month';
+import { useT } from '../i18n';
 
 interface Props {
   summary: MonthSummary;
   /** Months that can be shown, newest first. */
   months: MonthKey[];
   onMonth: (key: MonthKey) => void;
-  symbol: string;
+  currency: string;
   store: SpendingStore;
   now: number;
   email: ReturnType<typeof useEmailCheck>;
@@ -21,31 +22,32 @@ interface Props {
 }
 
 /** The answer to "how are we doing this month?", big enough to read across the room. */
-export function Glance({ summary, months, onMonth, symbol, store, now, email, onAdd, onRetry }: Props) {
-  const line = standing(summary, symbol);
+export function Glance({ summary, months, onMonth, currency, store, now, email, onAdd, onRetry }: Props) {
+  const t = useT();
+  const line = standing(summary, currency);
   const i = months.indexOf(summary.key);
   const older = months[i + 1];
   const newer = i > 0 ? months[i - 1] : undefined;
   const updated = lastUpdate(store.records, store.settings.emailCheckedAt);
   const status =
     email.state.status === 'checking'
-      ? 'Checking email for new purchases'
+      ? t('glance.checking')
       : updated
-        ? `Updated ${agoWords(updated.at, now)} from ${updated.how === 'email' ? 'email' : 'a statement'}`
-        : 'Not updated yet';
+        ? t(updated.how === 'email' ? 'glance.updatedEmail' : 'glance.updatedStatement', { ago: agoWords(updated.at, now) })
+        : t('glance.notUpdated');
 
   return (
-    <section aria-label="This month" className={`${cardClass} shrink-0 p-5 sm:p-6`}>
+    <section aria-label={t('glance.label')} className={`${cardClass} shrink-0 p-5 sm:p-6`}>
       <div className="flex items-start gap-3">
         <h2 className="min-w-0 flex-1 text-ink" aria-live="polite">
-          <span className="block text-5xl leading-tight font-semibold tabular-nums sm:inline sm:text-6xl">{money(summary.spentCents, symbol, true)}</span>{' '}
-          <span className="text-xl font-medium text-muted sm:text-3xl">spent in {summary.name}</span>
+          <span className="block text-5xl leading-tight font-semibold tabular-nums sm:inline sm:text-6xl">{money(summary.spentCents, currency, true)}</span>{' '}
+          <span className="text-xl font-medium text-muted sm:text-3xl">{t('glance.spentIn', { month: summary.name })}</span>
         </h2>
         <div className="flex shrink-0 items-center">
-          <button type="button" className={iconButton} aria-label="Previous month" disabled={!older} onClick={() => older && onMonth(older)}>
+          <button type="button" className={iconButton} aria-label={t('glance.previous')} disabled={!older} onClick={() => older && onMonth(older)}>
             <ChevronLeft size={22} />
           </button>
-          <button type="button" className={iconButton} aria-label="Next month" disabled={!newer} onClick={() => newer && onMonth(newer)}>
+          <button type="button" className={iconButton} aria-label={t('glance.next')} disabled={!newer} onClick={() => newer && onMonth(newer)}>
             <ChevronRight size={22} />
           </button>
         </div>
@@ -58,7 +60,7 @@ export function Glance({ summary, months, onMonth, symbol, store, now, email, on
           {status}
         </p>
         <button type="button" className={primaryButton} onClick={onAdd}>
-          <Plus size={18} /> Add spending
+          <Plus size={18} /> {t('add.title')}
         </button>
         {email.state.status === 'error' && (
           <div className="w-full">
@@ -72,10 +74,12 @@ export function Glance({ summary, months, onMonth, symbol, store, now, email, on
 
 /** Spent against the budget, with a mark where spending would be at an even pace today. */
 function PaceBar({ budget, isCurrent }: { budget: NonNullable<MonthSummary['budget']>; isCurrent: boolean }) {
+  const t = useT();
   const [spent, over] = chartColours(useTheme().dark);
   const used = Math.min(1, Math.max(0, budget.used));
   const mark = Math.min(97, Math.max(3, budget.elapsed * 100));
-  const label = `${Math.round(budget.used * 100)}% of the budget spent${isCurrent ? `, ${Math.round(budget.elapsed * 100)}% of the month gone` : ''}`;
+  const used100 = Math.round(budget.used * 100);
+  const label = isCurrent ? t('pace.labelCurrent', { used: used100, gone: Math.round(budget.elapsed * 100) }) : t('pace.label', { used: used100 });
   return (
     <div className="mt-4" role="img" aria-label={label}>
       <div className="relative">
@@ -87,7 +91,7 @@ function PaceBar({ budget, isCurrent }: { budget: NonNullable<MonthSummary['budg
       {isCurrent && (
         <div className="relative mt-1 h-5 text-sm text-muted" aria-hidden="true">
           <span className="absolute -translate-x-1/2" style={{ left: `${mark}%` }}>
-            Today
+            {t('pace.today')}
           </span>
         </div>
       )}

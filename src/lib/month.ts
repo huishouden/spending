@@ -1,7 +1,8 @@
-import { formatCents } from '@huishouden/pwa-kit/money';
-import { daysInMonth, MONTHS, type Ymd } from '@huishouden/pwa-kit/time';
+import { formatCents, isCurrencyCode } from '@huishouden/pwa-kit/money';
+import { daysInMonth, monthName as kitMonthName, monthYear, type Ymd } from '@huishouden/pwa-kit/time';
+import { t } from '../i18n';
 import type { SpendingRecord } from '../data/model';
-import { CATEGORIES, FALLBACK_CATEGORY } from './categorise';
+import { CATEGORIES, FALLBACK_CATEGORY, OTHER_CATEGORY, categoryLabel } from './categorise';
 import { containsKeyword, DEFAULT_IGNORED_PATTERNS } from '../services/sheets';
 
 /**
@@ -20,20 +21,30 @@ export function addMonth(key: MonthKey, n: number): MonthKey {
   return `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}`;
 }
 
-/** "September", with the year when it isn't this year: "December 2025". */
+/** "September", with the year when it isn't this year: "December 2025" ("septiembre", "diciembre de 2025"). */
 export function monthName(key: MonthKey, today: Ymd): string {
   const [y, m] = key.split('-').map(Number);
-  return today.startsWith(`${y}-`) ? MONTHS[m - 1] : `${MONTHS[m - 1]} ${y}`;
+  return today.startsWith(`${y}-`) ? kitMonthName(m) : monthYear(`${key}-15`);
 }
 
 export const cents = (amount: number) => Math.round(amount * 100);
 
-const CURRENCIES: Record<string, string> = { $: 'USD', '€': 'EUR', '£': 'GBP', '¥': 'JPY', '₹': 'INR', CHF: 'CHF' };
+const SYMBOLS: Record<string, string> = { $: 'USD', US$: 'USD', '€': 'EUR', '£': 'GBP', '¥': 'JPY', '₹': 'INR', CHF: 'CHF', C$: 'CAD', A$: 'AUD', MX$: 'MXN', R$: 'BRL' };
 
-/** The kit's money format in the household's currency symbol: "$1,388.31", or "$1,388" as a headline. */
-export function money(amountCents: number, symbol: string, headline = false): string {
-  const code = CURRENCIES[symbol.trim()];
-  return code ? formatCents(amountCents, { headline, currency: code }) : formatCents(amountCents, { headline }).replace('$', symbol);
+/**
+ * The currency Spending shows money in: the household's (`households/{id}.currency`, the suite's one
+ * setting), else what an older Spending setting's symbol stands for, else US dollars.
+ */
+export function spendingCurrency(household: string | undefined, legacySymbol: string | undefined): string {
+  if (isCurrencyCode(household)) return household;
+  const s = legacySymbol?.trim() ?? '';
+  if (isCurrencyCode(s.toUpperCase())) return s.toUpperCase();
+  return SYMBOLS[s] ?? 'USD';
+}
+
+/** The kit's money format in the household's currency and the page's locale: "$1,388.31", "1388,31 €", or "$1,388" as a headline. */
+export function money(amountCents: number, currency: string, headline = false): string {
+  return formatCents(amountCents, { headline, currency });
 }
 
 /**
@@ -102,7 +113,7 @@ export function summarise(purchases: SpendingRecord[], key: MonthKey, today: Ymd
   const categories: CategoryTotal[] = shown.map(([name, c]) => ({ name, cents: c, share: share(c), covers: [name] }));
   if (rest.length) {
     const c = rest.reduce((s, [, x]) => s + x, 0);
-    categories.push({ name: 'Other', cents: c, share: share(c), covers: rest.map(([n]) => n) });
+    categories.push({ name: OTHER_CATEGORY, cents: c, share: share(c), covers: rest.map(([n]) => n) });
   }
 
   const isCurrent = key === monthOf(today);
@@ -128,18 +139,18 @@ export function summarise(purchases: SpendingRecord[], key: MonthKey, today: Ymd
 }
 
 /** The line under the headline: against the budget, or against last month when there is none. */
-export function standing(s: MonthSummary, symbol: string): { text: string; attention: boolean } | null {
-  const $ = (c: number) => money(c, symbol, true);
+export function standing(s: MonthSummary, currency: string): { text: string; attention: boolean } | null {
+  const $ = (c: number) => money(c, currency, true);
   const b = s.budget;
   if (b) {
-    if (b.pace === 'over') return { text: `${$(s.spentCents - b.cents)} over the ${$(b.cents)} budget`, attention: true };
-    if (b.pace === 'under') return { text: `${$(b.cents - s.spentCents)} under the ${$(b.cents)} budget`, attention: false };
-    return { text: `${$(b.cents - s.spentCents)} left of ${$(b.cents)} · ${b.pace === 'on-track' ? 'on track' : 'ahead of pace'}`, attention: false };
+    if (b.pace === 'over') return { text: t('standing.over', { amount: $(s.spentCents - b.cents), budget: $(b.cents) }), attention: true };
+    if (b.pace === 'under') return { text: t('standing.under', { amount: $(b.cents - s.spentCents), budget: $(b.cents) }), attention: false };
+    return { text: t(b.pace === 'on-track' ? 'standing.leftOnTrack' : 'standing.leftAhead', { amount: $(b.cents - s.spentCents), budget: $(b.cents) }), attention: false };
   }
   if (!s.previous) return null;
   const diff = s.spentCents - s.previous.cents;
-  if (Math.abs(diff) < 100) return { text: `About the same as ${s.previous.name}`, attention: false };
-  return { text: `${$(Math.abs(diff))} ${diff < 0 ? 'less' : 'more'} than ${s.previous.name}`, attention: false };
+  if (Math.abs(diff) < 100) return { text: t('standing.same', { month: s.previous.name }), attention: false };
+  return { text: t(diff < 0 ? 'standing.less' : 'standing.more', { amount: $(Math.abs(diff)), month: s.previous.name }), attention: false };
 }
 
 /** When the numbers were last brought up to date, and how. */
@@ -161,6 +172,9 @@ export function rulePhrase(description: string): string {
     .slice(0, 3)
     .join(' ');
 }
+
+/** A category as shown: the app's own in the page's language, the household's own as written. */
+export { categoryLabel };
 
 /** The categories a purchase can go in: the usual ones, then the household's own. */
 export function categoryChoices(rules: { category: string }[], extra: string[] = []): string[] {

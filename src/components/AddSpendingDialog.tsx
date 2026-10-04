@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { ChevronRight, FileUp, Mail } from 'lucide-react';
 import { Dialog } from '@huishouden/pwa-kit/react/ui';
 import type { SpendingStore } from '../data/store';
+import { useT } from '../i18n';
 
 interface Props {
   store: SpendingStore;
@@ -15,25 +16,26 @@ interface Props {
 
 /** The two ways spending comes in: card alert emails, and statement files. */
 export function AddSpendingDialog({ store, checking, onCheckEmail, onImport, onCards, onClose }: Props) {
+  const t = useT();
   const canSearch = store.cards.some((c) => c.alertWords.length > 0) || store.settings.alertLabels.length > 0;
   const firstTime = store.live && canSearch && !store.mail.stored();
   return (
-    <Dialog title="Add spending" onClose={onClose}>
+    <Dialog title={t('add.title')} onClose={onClose}>
       <div className="space-y-3">
         {canSearch ? (
-          <Choice icon={<Mail size={22} />} title="Check email" text="Reads your card alert emails for new purchases." onClick={onCheckEmail} disabled={checking} />
+          <Choice icon={<Mail size={22} />} title={t('add.checkEmail')} text={t('add.checkEmailText')} onClick={onCheckEmail} disabled={checking} />
         ) : (
           <Choice
             icon={<Mail size={22} />}
-            title="Set up card alert emails"
-            text={store.cards.length ? 'Add the address each card’s alerts come from.' : 'Add your cards and the address their alerts come from.'}
+            title={t('add.setUp')}
+            text={store.cards.length ? t('add.setUpText') : t('add.setUpTextNoCards')}
             onClick={onCards}
           />
         )}
-        <Choice icon={<FileUp size={22} />} title="Import a statement" text="A CSV file from your bank’s or card’s website." onClick={onImport} />
+        <Choice icon={<FileUp size={22} />} title={t('import.title')} text={t('add.importText')} onClick={onImport} />
       </div>
       {firstTime && (
-        <p className="mt-4 text-sm text-muted">Google warns that the app is unverified the first time. Spending only reads card alert emails and never changes your mail.</p>
+        <p className="mt-4 text-sm text-muted">{t('add.unverified')}</p>
       )}
     </Dialog>
   );

@@ -65,3 +65,11 @@ describe('cells', () => {
     expect(parseDate('soon')).toBeNull();
   });
 });
+
+test('statement amounts with a decimal comma', () => {
+  expect(parseMoney('-12,50')).toBe(-12.5);
+  expect(parseMoney('1.234,56 €')).toBe(1234.56);
+  expect(parseMoney('€ 120,50')).toBe(120.5);
+  expect(parseMoney('1,234')).toBe(1234);
+  expect(parseMoney('1,234.56')).toBe(1234.56);
+});

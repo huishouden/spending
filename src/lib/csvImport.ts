@@ -88,7 +88,7 @@ function findHeader(headers: string[], tests: RegExp[], avoid?: RegExp): string 
   return undefined;
 }
 
-/** Reads a money cell: "$1,234.50", "-12.00", "(12.00)", "12.00-", "12.00 CR". */
+/** Reads a money cell: "$1,234.50", "-12.00", "(12.00)", "12.00-", "12.00 CR", and the decimal comma: "-12,50", "1.234,56 €". */
 export function parseMoney(raw: string | undefined): number | null {
   if (raw === undefined) return null;
   let s = raw.trim();
@@ -106,7 +106,10 @@ export function parseMoney(raw: string | undefined): number | null {
     negative = !negative;
     s = s.replace(/\s*CR$/i, '');
   }
-  s = s.replace(/[$€£\s,]/g, '');
+  s = s.replace(/[$€£\s\u00a0\u202f]/g, '');
+  // European statements write a decimal comma: "12,50", "1.234,56". A comma with one or two digits
+  // after it, and no point after it, is the decimal; otherwise commas group thousands ("1,234.56").
+  s = /,\d{1,2}$/.test(s) && s.lastIndexOf(',') > s.lastIndexOf('.') ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
   if (s.startsWith('-')) {
     negative = !negative;
     s = s.slice(1);

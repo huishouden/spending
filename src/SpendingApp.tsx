@@ -17,6 +17,7 @@ import { PurchaseDialog } from './components/PurchaseDialog';
 import { AddSpendingDialog } from './components/AddSpendingDialog';
 import { ImportDialog } from './components/ImportDialog';
 import { SettingsDialog, type SettingsTab } from './components/SettingsDialog';
+import { useT } from './i18n';
 
 const VERSION = `${import.meta.env.VITE_APP_VERSION} (${import.meta.env.VITE_BUILD_SHA})`;
 
@@ -30,9 +31,10 @@ export interface FrameProps {
 
 /** The Huishouden app bar and the page under it. */
 export function Frame({ user, onSignIn, onSignOut, signingIn, actions, children }: FrameProps & { actions?: ReactNode; children?: ReactNode }) {
+  const t = useT();
   return (
     <div className="flex min-h-dvh flex-col bg-page font-sans text-ink antialiased lg:h-dvh lg:overflow-hidden">
-      <AppBar app="Spending" glyph="card" portalUrl={PORTAL_URL} version={VERSION} user={user} signingIn={signingIn} onSignIn={onSignIn} onSignOut={onSignOut}>
+      <AppBar app={t('app.name')} glyph="card" portalUrl={PORTAL_URL} version={VERSION} user={user} signingIn={signingIn} onSignIn={onSignIn} onSignOut={onSignOut}>
         {actions}
       </AppBar>
       <main className="mx-auto flex w-full max-w-[1200px] min-h-0 flex-1 flex-col gap-4 px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-6 sm:pb-6">
@@ -52,6 +54,7 @@ interface Props {
 
 /** How are we doing this month: the glance, where it went, the latest purchases. */
 export function SpendingApp({ store, frame, toasts, banner }: Props) {
+  const t = useT();
   const { now } = useClock();
   const today = toYmd(now);
   const { notify, toast, clear } = toasts;
@@ -76,7 +79,7 @@ export function SpendingApp({ store, frame, toasts, banner }: Props) {
   const shownMonths = useMemo(() => months(purchases, today), [purchases, today]);
   const key = month ?? monthOf(today);
   const summary = useMemo(() => summarise(purchases, key, today, store.settings.monthlyBudget), [purchases, key, today, store.settings.monthlyBudget]);
-  const symbol = store.settings.currencySymbol;
+  const currency = store.currency;
   // The open category follows the data (a purchase moved out of it, a month changed).
   const shownCategory = category && summary.categories.find((c) => c.name === category.name);
 
@@ -86,17 +89,18 @@ export function SpendingApp({ store, frame, toasts, banner }: Props) {
     const s = email.state;
     if (s.status !== 'done' || (!asked.current && s.added === 0)) return;
     asked.current = false;
-    notify(s.added ? `Added ${s.added} purchase${s.added === 1 ? '' : 's'} from email` : 'No new purchases in email');
-  }, [email.state, notify]);
+    notify(s.added ? t('toast.addedFromEmail', { n: s.added }) : t('toast.noneInEmail'));
+  }, [email.state, notify, t]);
   const checkEmail = () => {
     asked.current = true;
     setAdding(false);
     void email.check(true);
   };
 
+  const title = t('app.title');
   useEffect(() => {
-    document.title = 'Huishouden Spending';
-  }, []);
+    document.title = title;
+  }, [title]);
 
   const goMonth = (k: MonthKey) => {
     setMonth(k === monthOf(today) ? null : k);
@@ -104,7 +108,7 @@ export function SpendingApp({ store, frame, toasts, banner }: Props) {
   };
 
   const settingsButton = (
-    <button slot="actions" type="button" className={iconButton} aria-label="Spending settings" onClick={() => setSettings('budget')}>
+    <button slot="actions" type="button" className={iconButton} aria-label={t('settings.open')} onClick={() => setSettings('budget')}>
       <Settings size={22} />
     </button>
   );
@@ -113,13 +117,13 @@ export function SpendingApp({ store, frame, toasts, banner }: Props) {
     <Frame {...frame} actions={settingsButton}>
       {banner}
       {!store.ready ? (
-        <p className="p-2 text-lg text-muted">Loading the household's spending</p>
+        <p className="p-2 text-lg text-muted">{t('app.loading')}</p>
       ) : (
         <>
-          <Glance summary={summary} months={shownMonths} onMonth={goMonth} symbol={symbol} store={store} now={now} email={email} onAdd={() => setAdding(true)} onRetry={checkEmail} />
+          <Glance summary={summary} months={shownMonths} onMonth={goMonth} currency={currency} store={store} now={now} email={email} onAdd={() => setAdding(true)} onRetry={checkEmail} />
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2">
-            <WhereItWent summary={summary} symbol={symbol} selected={shownCategory?.name ?? null} onSelect={(c) => setCategory(c && c.name !== shownCategory?.name ? c : null)} />
-            <Purchases summary={summary} category={shownCategory ?? null} symbol={symbol} today={today} onOpen={setOpen} onAll={() => setCategory(null)} />
+            <WhereItWent summary={summary} currency={currency} selected={shownCategory?.name ?? null} onSelect={(c) => setCategory(c && c.name !== shownCategory?.name ? c : null)} />
+            <Purchases summary={summary} category={shownCategory ?? null} currency={currency} today={today} onOpen={setOpen} onAll={() => setCategory(null)} />
           </div>
         </>
       )}

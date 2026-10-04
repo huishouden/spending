@@ -4,7 +4,8 @@ import { longDate, type Ymd } from '@huishouden/pwa-kit/time';
 import { Checkbox, Chip, deleteButton, Dialog, ghostButton, inputClass, primaryButton } from '@huishouden/pwa-kit/react/ui';
 import type { SpendingStore } from '../data/store';
 import { ruleId, type SpendingRecord } from '../data/model';
-import { categoryChoices, cents, money, rulePhrase } from '../lib/month';
+import { categoryChoices, categoryLabel, cents, money, rulePhrase } from '../lib/month';
+import { useT } from '../i18n';
 
 interface Props {
   record: SpendingRecord;
@@ -16,6 +17,7 @@ interface Props {
 
 /** One purchase: put it in another category (and, if wanted, every later one from the same shop), or remove it. */
 export function PurchaseDialog({ record, store, today, notify, onClose }: Props) {
+  const t = useT();
   const [category, setCategory] = useState(record.category);
   const [always, setAlways] = useState(false);
   const phrase = rulePhrase(record.description);
@@ -35,14 +37,14 @@ export function PurchaseDialog({ record, store, today, notify, onClose }: Props)
       if (moved) void actions.recategorise({ ...record, category: chosen }, record.category);
       if (rule) void (before ? actions.saveRule(before) : actions.deleteRule(ruleId(phrase)));
     };
-    notify(moved ? `Moved ${record.description} to ${chosen}` : `${record.description} will always go in ${chosen}`, undo);
+    notify(moved ? t('toast.moved', { name: record.description, category: categoryLabel(chosen) }) : t('toast.always', { name: record.description, category: categoryLabel(chosen) }), undo);
   };
 
   const remove = () => {
     void actions.deleteTransaction(record.id);
     onClose();
     // Writing the purchase back as it was puts it back.
-    notify(`Removed ${record.description}`, () => void actions.recategorise(record, record.category));
+    notify(t('toast.removed', { name: record.description }), () => void actions.recategorise(record, record.category));
   };
 
   return (
@@ -52,37 +54,37 @@ export function PurchaseDialog({ record, store, today, notify, onClose }: Props)
       footer={
         <>
           <button type="button" className={deleteButton} onClick={remove}>
-            <Trash2 size={18} /> Remove
+            <Trash2 size={18} /> {t('common.remove')}
           </button>
           <button type="button" className={ghostButton} onClick={onClose}>
-            Cancel
+            {t('common.cancel')}
           </button>
           <button type="button" className={primaryButton} onClick={save} disabled={!chosen}>
-            Save
+            {t('common.save')}
           </button>
         </>
       }
     >
       <p className="text-lg text-ink">
-        <span className="font-semibold tabular-nums">{money(cents(record.amount), store.settings.currencySymbol)}</span> on {longDate(record.date, today)}
+        <span className="font-semibold tabular-nums">{money(cents(record.amount), store.currency)}</span> {t('purchase.on', { date: longDate(record.date, today) })}
       </p>
       <p className="mb-5 text-base text-muted">
-        {record.card} · from {record.source === 'alert' ? 'a card alert email' : 'a statement'}
+        {record.card} · {record.source === 'alert' ? t('purchase.fromAlert') : t('purchase.fromStatement')}
       </p>
 
       <fieldset>
-        <legend className="mb-2 text-sm font-medium text-ink-soft">Category</legend>
+        <legend className="mb-2 text-sm font-medium text-ink-soft">{t('purchase.category')}</legend>
         <div className="flex flex-wrap gap-2">
           {choices.map((c) => (
             <Chip key={c} active={c === chosen} onClick={() => setCategory(c)}>
-              {c}
+              {categoryLabel(c)}
             </Chip>
           ))}
         </div>
         <input
           className={`${inputClass} mt-3`}
-          aria-label="Another category"
-          placeholder="Another category"
+          aria-label={t('purchase.another')}
+          placeholder={t('purchase.another')}
           maxLength={60}
           value={choices.includes(category) ? '' : category}
           onChange={(e) => setCategory(e.target.value)}
@@ -92,7 +94,7 @@ export function PurchaseDialog({ record, store, today, notify, onClose }: Props)
       {phrase && (
         <div className="mt-4">
           <Checkbox checked={always} onChange={setAlways}>
-            Always put “{phrase}” in {chosen || 'this category'}
+            {chosen ? t('purchase.always', { phrase, category: categoryLabel(chosen) }) : t('purchase.alwaysThis', { phrase })}
           </Checkbox>
         </div>
       )}
