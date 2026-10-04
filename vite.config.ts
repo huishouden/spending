@@ -25,7 +25,6 @@ export default defineConfig(() => {
         name: 'Huishouden Spending',
         shortName: 'Spending',
         description: "Where the household's money goes",
-        url: 'https://huishouden-piekstra.web.app/spending/',
         themeColor: '#1b4332',
         backgroundColor: '#faf9f5',
         includeAssets: ['icon.svg', 'favicon.png', 'apple-touch-icon.png'],
