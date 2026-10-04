@@ -1,14 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { captureScreenshot } from '@huishouden/pwa-kit/e2e';
-
-// The settings sit in the app bar's menu; the live site the "before" images come from may still have the gear.
-async function openSettings(p: Page) {
-  const bar = p.locator('hh-app-bar');
-  const gear = bar.locator('button[slot="actions"]');
-  if (await gear.count()) return gear.click();
-  await bar.locator('[data-trigger]').click();
-  await bar.getByRole('button', { name: 'Spending settings' }).click();
-}
+import { captureScreenshot, openAppSettings } from '@huishouden/pwa-kit/e2e';
 
 // README images of the signed-out app, which shows its built-in sample household (invented cards,
 // shops and amounts) on the sample's own clock, so every run renders the same month.
@@ -76,7 +67,7 @@ test('import a statement', ({ page }) =>
 test('settings: budget', ({ page }) =>
   captureScreenshot(page, 'settings-budget', {
     prepare: async (p) => {
-      await openSettings(p);
+      await openAppSettings(p, 'Spending settings');
     },
   }));
 
@@ -84,7 +75,7 @@ test('settings: budget', ({ page }) =>
 test('settings: cards', ({ page }) =>
   captureScreenshot(page, 'settings-cards', {
     prepare: async (p) => {
-      await openSettings(p);
+      await openAppSettings(p, 'Spending settings');
       await p.getByRole('dialog', { name: 'Settings' }).getByRole('button', { name: 'Cards' }).click();
     },
   }));
