@@ -1,60 +1,41 @@
 import { expect, test, type Page } from '@playwright/test';
-import { signInTestUser } from '@huishouden/pwa-kit/e2e';
+import { openAppSettings, useTestHousehold } from '@huishouden/pwa-kit/e2e';
 
-// Signed in as an invented test user on the staging site (pwa-kit STANDARD.md "Staging"): the real
-// staging Firestore and rules, the seeded test household. Each run saves a value unique to it and
-// looks for exactly that.
-test.skip(!process.env.HH_STAGING_SA, 'signed-in tests run against staging, in CI');
+// Signed in as the invented people of a household of this run's own (pwa-kit STANDARD.md
+// "Staging"), against the real rules: on the emulators (app-tests, `bun run e2e:emulator`), and on
+// staging for a kit bump (@smoke). No flow here needs another app or a Worker, so none is @staging.
+const hh = useTestHousehold(test);
 
 async function budgetSettings(page: Page) {
-  // The bar holds Spending settings once the household's spending has loaded (the loading screen's bar has none).
-  await expect(page.locator('hh-app-bar [part="app-settings"]')).toBeAttached({ timeout: 20_000 });
-  await page.locator('hh-app-bar [data-trigger]').click();
-  await page.locator('hh-app-bar').getByRole('button', { name: 'Spending settings' }).click();
+  await openAppSettings(page, 'Spending settings');
   const settings = page.getByRole('dialog', { name: 'Settings' });
   await settings.getByRole('button', { name: 'Budget', exact: true }).click();
   return settings;
 }
 
-test('a budget one member saves is the household budget for the other', async ({ page, browser }) => {
-  await signInTestUser(page, { email: 'test-a@example.com' });
+test('a budget one member saves is the household budget for the other', { tag: '@smoke' }, async ({ browser }) => {
+  const page = await hh.open(browser, 'admin');
   await expect(page.getByText('Sample data')).toHaveCount(0);
-  // A round number unique to this run: $1,010 to $9,990.
-  const budget = String((101 + (Date.now() % 899)) * 10);
+  const budget = '2750';
   const settings = await budgetSettings(page);
   await settings.getByLabel('Monthly budget').fill(budget);
   await settings.getByRole('button', { name: 'Save budget' }).click();
   await expect(settings.getByRole('status')).toHaveText('Saved');
 
   // Saved in the household, not just on this screen: the other member's own browser reads it.
-  const other = await browser.newContext({ baseURL: test.info().project.use.baseURL });
-  try {
-    const theirs = await other.newPage();
-    await signInTestUser(theirs, { email: 'test-b@example.com' });
-    await expect((await budgetSettings(theirs)).getByLabel('Monthly budget')).toHaveValue(budget, { timeout: 20_000 });
-  } finally {
-    await other.close();
-  }
+  const theirs = await hh.open(browser, 'member');
+  await expect((await budgetSettings(theirs)).getByLabel('Monthly budget')).toHaveValue(budget, { timeout: 20_000 });
 });
 
-// Roles: a helper (test-helper) is refused the household's money and nothing loads; the app bar
-// still works for them.
-test.describe('as a helper', () => {
-  test.beforeAll(async () => {
-    // Another app's run may have reseeded the household with an older kit that has no helper.
-    const { seedTestHousehold } = await import('@huishouden/pwa-kit/staging');
-    await seedTestHousehold({ accessToken: process.env.HH_STAGING_ACCESS_TOKEN! });
+// Roles: a helper is refused the household's money and nothing loads; the app bar still works for them.
+test('a helper opening Spending is told only admins and members can see the money, and loads none', async ({ page }) => {
+  const reads: string[] = [];
+  page.on('request', (r) => {
+    if (/spending(Transactions|Settings|Cards|Rules)/.test(decodeURIComponent(r.url()) + (r.postData() ?? ''))) reads.push(r.url());
   });
-
-  test('opening Spending says only admins and members can see the money, and loads none', async ({ page }) => {
-    const reads: string[] = [];
-    page.on('request', (r) => {
-      if (/spending(Transactions|Settings|Cards|Rules)/.test(decodeURIComponent(r.url()) + (r.postData() ?? ''))) reads.push(r.url());
-    });
-    await signInTestUser(page, { email: 'test-helper@example.com' });
-    await expect(page.getByText('Only admins and members can see the household’s money.')).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByRole('link', { name: 'Open Huishouden' })).toBeVisible();
-    await expect(page.locator('hh-app-bar [part="app-settings"]')).toHaveCount(0);
-    expect(reads).toEqual([]);
-  });
+  await hh.signIn(page, 'helper');
+  await expect(page.getByText('Only admins and members can see the household’s money.')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('link', { name: 'Open Huishouden' })).toBeVisible();
+  await expect(page.locator('hh-app-bar [part="app-settings"]')).toHaveCount(0);
+  expect(reads).toEqual([]);
 });
