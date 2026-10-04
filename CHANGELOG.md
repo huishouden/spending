@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.6.0](https://github.com/huishouden/spending/compare/v2.5.1...v2.6.0) (2026-10-04)
+
+
+### Features
+
+* alert inboxes: connect any Gmail account, checked every 5 minutes with no app open ([#47](https://github.com/huishouden/spending/issues/47)) ([8be0fe6](https://github.com/huishouden/spending/commit/8be0fe611616a0da33beaf8edde46792c56b4890))
+
 ## [2.5.1](https://github.com/huishouden/spending/compare/v2.5.0...v2.5.1) (2026-10-04)
 
 
