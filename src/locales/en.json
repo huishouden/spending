@@ -227,7 +227,6 @@
   "inbox.privacy": "Spending asks Google for read-only access to the inbox you choose. It only searches for your cards’ alert words and these labels, and keeps only what it writes for each purchase: date, shop, amount, category and card. Disconnect removes the access at Google and deletes what was kept for it.",
   "inbox.unverified": "Gmail access is a restricted permission. Until Google has reviewed the app, Google shows a warning that it is unverified, and at most 100 Google accounts can connect.",
   "inbox.unavailable": "Alert inboxes aren’t set up on this server.",
-  "inbox.err.popupBlocked": "The browser blocked Google’s window. Allow pop-ups for this site and try again.",
   "inbox.err.denied": "Google didn’t allow reading that inbox. In Google’s window, tick the box to view your email messages.",
   "inbox.err.notAllowed": "Only admins and members can manage alert inboxes, and only an admin or whoever connected an inbox can disconnect it.",
   "inbox.err.quota": "The household’s daily limit is used up. Try again tomorrow.",

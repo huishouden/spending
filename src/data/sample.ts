@@ -203,6 +203,8 @@ export function useSampleStore(read: () => number = Date.now): SpendingStore {
       busy: inboxBusy,
       isAdmin: true,
       refresh: async () => inboxStatus,
+      awaitingGoogle: false,
+      showGoogle: () => {},
       connect: async () => {
         // No Google window in the sample: a second inbox appears, as a partner's card alerts would.
         update((s) => ({ ...s, inboxes: [...s.inboxes.filter((i) => i.id !== 'ib-partner'), { id: 'ib-partner', address: 'partner-alerts@example.com', by: SAMPLE_ME, mine: true, connectedAt: read(), lastChecked: read(), lastAlertAt: null, lastAdded: null, error: null, checking: false }], lastChecked: read() }));

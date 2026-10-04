@@ -115,7 +115,7 @@ async function stubWorker(page: Page, first: Inbox[] = []) {
 }
 
 /** Google's code client, stubbed: the account chooser "returns" a one-time code, and what was asked is kept. */
-async function stubGoogle(page: Page, answer: Record<string, string> = { code: 'one-time-code', scope: 'https://www.googleapis.com/auth/gmail.readonly' }) {
+async function stubGoogle(page: Page, answer: Record<string, string> | 'blocked' | 'hidden' = { code: 'one-time-code', scope: 'https://www.googleapis.com/auth/gmail.readonly' }) {
   await page.addInitScript(
     ({ worker, answer }) => {
       window.__mailTestUrl = worker;
@@ -125,11 +125,13 @@ async function stubGoogle(page: Page, answer: Record<string, string> = { code: '
         accounts: {
           id: {},
           oauth2: {
-            initCodeClient: (cfg: Record<string, unknown> & { callback: (r: Record<string, string>) => void }) => ({
+            initCodeClient: (cfg: Record<string, unknown> & { callback: (r: Record<string, string>) => void; error_callback?: (e: { type: string; message?: string }) => void }) => ({
               requestCode: () => {
                 const { callback: _c, error_callback: _e, ...rest } = cfg;
                 asked.push(rest);
-                setTimeout(() => cfg.callback(answer), 10);
+                // A blocked window ends at once; a window out of sight never answers.
+                if (answer === 'blocked') setTimeout(() => cfg.error_callback?.({ type: 'popup_failed_to_open', message: 'Failed to open popup window' }), 10);
+                else if (answer !== 'hidden') setTimeout(() => cfg.callback(answer), 10);
               },
             }),
           },
@@ -170,6 +172,28 @@ test.describe('with the calendar Worker (stubbed)', () => {
     await list.getByRole('button', { name: 'Disconnect alerts.example@example.com' }).click();
     await expect(section).toContainText('No inbox connected yet.');
     expect(worker.calls.find((c) => c.path === '/api/mail/disconnect')!.body).toMatchObject({ household: 'sample', inbox: 'ib-alerts' });
+  });
+
+  test('a blocked Google window says so, and connecting can be tried again', async ({ page }) => {
+    const worker = await stubWorker(page);
+    await stubGoogle(page, 'blocked');
+    await page.goto('./');
+    const section = await openEmail(page);
+    await section.getByRole('button', { name: 'Connect alert inbox' }).click();
+    await expect(section.getByRole('alert')).toHaveText('Your browser blocked Google’s window. Allow pop-ups for this site, then try again.');
+    await expect(section.getByRole('button', { name: 'Connect alert inbox' })).toBeEnabled();
+    expect(worker.calls.some((c) => c.path === '/api/mail/connect')).toBe(false);
+  });
+
+  test('a Google window out of sight: after a few seconds, a way to bring it back', async ({ page }) => {
+    await stubWorker(page);
+    await stubGoogle(page, 'hidden');
+    await page.goto('./');
+    const section = await openEmail(page);
+    await section.getByRole('button', { name: 'Connect alert inbox' }).click();
+    await expect(section.getByRole('status').filter({ hasText: 'Can’t see it? It may be behind this window.' })).toBeVisible({ timeout: 10_000 });
+    await section.getByRole('button', { name: 'Show Google’s window' }).click();
+    expect(await page.evaluate(() => (window as unknown as { __codeRequests: unknown[] }).__codeRequests.length)).toBe(2);
   });
 
   test('Google access removed: the glance says so, and Reconnect leads to the inbox', async ({ page }) => {

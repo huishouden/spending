@@ -99,6 +99,10 @@ export interface AlertInboxes {
   refresh(): Promise<MailStatus | null>;
   /** Google's account chooser (from a tap), then the Worker keeps read-only access to that account. */
   connect(): Promise<void>;
+  /** True while Google's window is open for `connect`: it may be out of sight. */
+  awaitingGoogle: boolean;
+  /** Brings Google's window back to the front while `awaitingGoogle`. */
+  showGoogle(): void;
   /** Every inbox checked now, with the household's latest cards and labels. Rejects with the failure in words. */
   checkNow(): Promise<MailStatus | null>;
   disconnect(id: string): Promise<void>;
