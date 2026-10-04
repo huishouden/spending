@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.1](https://github.com/huishouden/spending/compare/v2.5.0...v2.5.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* Spending settings in the app bar's menu, one button signed out; kit 0.70.0 ([#42](https://github.com/huishouden/spending/issues/42)) ([a8a60e1](https://github.com/huishouden/spending/commit/a8a60e1e9764ec0dcc2d30fcef970d86e70d0a88))
+
 ## [2.5.0](https://github.com/huishouden/spending/compare/v2.4.0...v2.5.0) (2026-10-04)
 
 
