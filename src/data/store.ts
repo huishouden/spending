@@ -95,6 +95,10 @@ export interface SpendingStore {
   records: SpendingRecord[];
   actions: SpendingActions;
   mail: MailAccess;
+  /** The currency amounts are shown in: the household's (see `spendingCurrency`). */
+  currency: string;
+  /** Sets the household's currency, for every app (households/{id}.currency). */
+  saveCurrency(code: string): Promise<void>;
 }
 
 export interface Derived {

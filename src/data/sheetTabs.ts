@@ -2,6 +2,7 @@ import type { Auth } from 'firebase/auth';
 import { googleAccessToken } from '@huishouden/pwa-kit/google-token';
 import { googleAccessMessage } from '@huishouden/pwa-kit/feedback';
 import { extractSpreadsheetId } from '../services/sheets';
+import { t } from '../i18n';
 
 /**
  * Reads the legacy Sheet's settings tabs (Cards, Categories, Alert labels) for the one-time move into
@@ -24,14 +25,14 @@ async function tab(token: string, id: string, range: string): Promise<string[][]
   if (res.status === 400) return [];
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
-    throw new Error(res.status === 404 ? 'No Sheet at that link, or this account cannot open it.' : `Sheets answered ${res.status}: ${body.error?.message ?? res.statusText}`);
+    throw new Error(res.status === 404 ? t('sheet.notFound') : t('sheet.answered', { status: res.status, detail: body.error?.message ?? res.statusText }));
   }
   return ((await res.json()) as { values?: string[][] }).values ?? [];
 }
 
 export async function readSheetTabs(token: string, link: string) {
   const id = extractSpreadsheetId(link);
-  if (!id) throw new Error('Paste the Sheet’s link first.');
+  if (!id) throw new Error(t('sheet.pasteFirst'));
   const [cards, categories, labels] = await Promise.all([tab(token, id, 'Cards!A1:D'), tab(token, id, 'Categories!A1:B'), tab(token, id, "'Alert labels'!A1:A")]);
   return { cards, categories, labels };
 }

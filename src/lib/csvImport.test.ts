@@ -65,3 +65,19 @@ describe('cells', () => {
     expect(parseDate('soon')).toBeNull();
   });
 });
+
+test('statement amounts with a decimal comma', () => {
+  expect(parseMoney('-12,50')).toBe(-12.5);
+  expect(parseMoney('1.234,56 €')).toBe(1234.56);
+  expect(parseMoney('€ 120,50')).toBe(120.5);
+  expect(parseMoney('1,234')).toBe(1234);
+  expect(parseMoney('1,234.56')).toBe(1234.56);
+});
+
+test('a semicolon-separated statement with Dutch headers and decimal commas', () => {
+  const file = readCsv('Datum;Omschrijving;Bedrag\n25-09-2026;EXAMPLE SUPERMARKT;-61,15\n24-09-2026;EXAMPLE BOEKHANDEL;-27,10\n');
+  expect(file.headers).toEqual(['Datum', 'Omschrijving', 'Bedrag']);
+  const { mapping } = detectMapping(file);
+  expect(mapping).toMatchObject({ date: 'Datum', description: 'Omschrijving', amount: 'Bedrag', purchases: 'negative', dayFirst: true });
+  expect(file.rows.map((r) => parseMoney(r[2]))).toEqual([-61.15, -27.1]);
+});

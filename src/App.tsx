@@ -14,6 +14,7 @@ import { SAMPLE_NOW, useSampleStore } from './data/sample';
 import { DEFAULT_SPEND_SETTINGS } from './data/model';
 import { PORTAL_URL } from './config/portal';
 import { Frame, SpendingApp, type FrameProps } from './SpendingApp';
+import { t, useT } from './i18n';
 
 /** Who is here decides what shows: the sample household, a "not in a household yet" note, or the household's own spending. */
 export default function App() {
@@ -34,7 +35,7 @@ export default function App() {
     try {
       await signInWithGoogle();
     } catch (e) {
-      if (!popupCancelled(e)) setSignInError("Couldn't sign in. Try again.");
+      if (!popupCancelled(e)) setSignInError(t('signIn.failed'));
     } finally {
       setSigningIn(false);
     }
@@ -50,6 +51,7 @@ export default function App() {
 }
 
 function SignedIn({ user, frame }: { user: User; frame: FrameProps }) {
+  const t = useT();
   const email = (user.email ?? '').toLowerCase();
   const [state, setState] = useState<HouseholdState>({ status: 'loading' });
   useEffect(() => (email ? watchHousehold(getDb(), email, setState) : undefined), [email]);
@@ -63,26 +65,23 @@ function SignedIn({ user, frame }: { user: User; frame: FrameProps }) {
 
   // Helpers and kids never see the household's money (the rules refuse every read): no listeners, no email checks.
   if (state.status === 'ready' && !seesMoney(state.household, email)) return <MoneyRefusal frame={frame} />;
-  if (state.status === 'ready') return <LiveApp householdId={state.household.id} email={email} frame={frame} />;
-  if (state.status === 'loading') return <Note frame={frame}>Finding your household.</Note>;
-  if (state.status === 'error') return <Note frame={frame}>Couldn't reach the household. Check the connection; the app tries again on its own.</Note>;
+  if (state.status === 'ready') return <LiveApp householdId={state.household.id} currency={state.household.currency} email={email} frame={frame} />;
+  if (state.status === 'loading') return <Note frame={frame}>{t('household.finding')}</Note>;
+  if (state.status === 'error') return <Note frame={frame}>{t('household.unreachable')}</Note>;
   return (
     <Note frame={frame}>
-      <h2 className="text-2xl font-semibold text-ink">Not in a household yet</h2>
-      <p className="mt-2">
-        {user.email} isn't in a Huishouden household. Start one on the Huishouden home screen, or ask someone in your household to invite this address, then
-        open Spending again.
-      </p>
+      <h2 className="text-2xl font-semibold text-ink">{t('household.noneTitle')}</h2>
+      <p className="mt-2">{t('household.noneBody', { email: user.email ?? '' })}</p>
       <a className={`${primaryButton} mt-5`} href={PORTAL_URL}>
-        Open Huishouden
+        {t('household.openPortal')}
       </a>
     </Note>
   );
 }
 
-function LiveApp({ householdId, email, frame }: { householdId: string; email: string; frame: FrameProps }) {
+function LiveApp({ householdId, currency, email, frame }: { householdId: string; currency?: string; email: string; frame: FrameProps }) {
   const toasts = useToast();
-  const store = useLiveStore(householdId, email, DEFAULT_SPEND_SETTINGS, toasts.fail);
+  const store = useLiveStore(householdId, email, DEFAULT_SPEND_SETTINGS, toasts.fail, currency);
   return (
     <ClockProvider read={Date.now}>
       <SpendingApp store={store} frame={frame} toasts={toasts} />
@@ -94,9 +93,10 @@ function LiveApp({ householdId, email, frame }: { householdId: string; email: st
 function SampleApp({ frame, signInError }: { frame: FrameProps; signInError: string | null }) {
   const loadedAt = useMemo(() => Date.now(), []);
   const read = useCallback(() => SAMPLE_NOW + (Date.now() - loadedAt), [loadedAt]);
+  const t = useT();
   const toasts = useToast();
   const store = useSampleStore(read);
-  const banner = <SampleBanner text="An invented household. Nothing is saved. Sign in to see your household’s own spending." notice={signInError ?? undefined} />;
+  const banner = <SampleBanner text={t('sample.banner')} notice={signInError ?? undefined} />;
   return (
     <ClockProvider read={read}>
       <SpendingApp store={store} frame={frame} toasts={toasts} banner={banner} />
@@ -105,12 +105,13 @@ function SampleApp({ frame, signInError }: { frame: FrameProps; signInError: str
 }
 
 function MoneyRefusal({ frame }: { frame: FrameProps }) {
+  const t = useT();
   return (
     <Note frame={frame}>
-      <h2 className="text-2xl font-semibold text-ink">Spending</h2>
+      <h2 className="text-2xl font-semibold text-ink">{t('app.name')}</h2>
       <p className="mt-2">{refusal('see-money')}</p>
       <a className={`${primaryButton} mt-5`} href={PORTAL_URL}>
-        Open Huishouden
+        {t('household.openPortal')}
       </a>
     </Note>
   );

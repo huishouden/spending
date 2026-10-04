@@ -1,4 +1,5 @@
 import { cleanCategoryName } from '../services/sheets';
+import { t } from '../i18n';
 
 /**
  * Categories come from the household's own rules: "when the merchant contains X, it's category Y".
@@ -28,6 +29,33 @@ export const CATEGORIES = [
 
 /** Where a charge goes when no rule matches and the statement file names no category. */
 export const FALLBACK_CATEGORY = 'Miscellaneous';
+
+/** The chart's bucket for the smallest categories past eight. */
+export const OTHER_CATEGORY = 'Other';
+
+const CATEGORY_KEYS = {
+  Groceries: 'category.groceries',
+  'Dining & Food': 'category.dining',
+  'Shopping & Retail': 'category.shopping',
+  'Gas & Transport': 'category.transport',
+  'Subscriptions & Tech': 'category.subscriptions',
+  'Bills & Utilities': 'category.bills',
+  'Home & Garden': 'category.home',
+  'Health & Personal Care': 'category.health',
+  'Travel & Lodging': 'category.travel',
+  Entertainment: 'category.entertainment',
+  Miscellaneous: 'category.miscellaneous',
+  Other: 'category.other',
+} as const satisfies Record<(typeof CATEGORIES)[number] | typeof OTHER_CATEGORY, string>;
+
+/**
+ * A category as shown. Categories are stored in English, as the rules, statements and the legacy
+ * Sheet write them: the app's own show in the page's language, a household's own as written.
+ */
+export function categoryLabel(name: string): string {
+  const key = (CATEGORY_KEYS as Record<string, (typeof CATEGORY_KEYS)[keyof typeof CATEGORY_KEYS]>)[name];
+  return key ? t(key) : name;
+}
 
 const rules = (category: string, words: string[]): CategoryRule[] => words.map((contains) => ({ contains, category }));
 

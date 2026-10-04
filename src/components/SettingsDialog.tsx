@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Pencil, Plus, Trash2, X } from 'lucide-react';
-import { Chip, Dialog, ghostButton, iconButton, inputClass, overline, primaryButton, secondaryButton } from '@huishouden/pwa-kit/react/ui';
+import { Chip, Dialog, ghostButton, iconButton, inputClass, overline, primaryButton, secondaryButton, selectClass } from '@huishouden/pwa-kit/react/ui';
 import { readError } from '@huishouden/pwa-kit/feedback';
 import type { SpendingStore } from '../data/store';
 import type { Card } from '../data/model';
@@ -9,15 +9,32 @@ import { auth } from '../services/auth';
 import { CATEGORIES } from '../lib/categorise';
 import { categoryChoices } from '../lib/month';
 import { fromSheetTabs, pastedRows, type SheetSettings } from '../lib/sheetSettings';
+import { centsToInput, parseCents } from '@huishouden/pwa-kit/money';
+import { getLocale } from '@huishouden/pwa-kit/i18n';
+import { categoryLabel } from '../lib/month';
+import { t as tt, useT } from '../i18n';
 
 export type SettingsTab = 'budget' | 'cards' | 'categories' | 'email';
 
-const TABS: { id: SettingsTab; label: string }[] = [
-  { id: 'budget', label: 'Budget' },
-  { id: 'cards', label: 'Cards' },
-  { id: 'categories', label: 'Categories' },
-  { id: 'email', label: 'Email' },
-];
+const TABS = [
+  { id: 'budget', label: 'settings.tab.budget' },
+  { id: 'cards', label: 'settings.tab.cards' },
+  { id: 'categories', label: 'settings.tab.categories' },
+  { id: 'email', label: 'settings.tab.email' },
+] as const satisfies readonly { id: SettingsTab; label: string }[];
+
+/** Currencies offered first; the household's own is added when it is another. */
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'MXN', 'AUD', 'NZD', 'CHF', 'JPY', 'INR', 'BRL', 'COP', 'ARS', 'CLP', 'PEN', 'SEK', 'NOK', 'DKK', 'PLN', 'ZAR'];
+
+/** "Euro (€)", "euro (EUR)": the currency's name in the page's language, with its symbol. */
+function currencyName(code: string): string {
+  const name = new Intl.DisplayNames(getLocale(), { type: 'currency' }).of(code) ?? code;
+  const symbol = new Intl.NumberFormat(getLocale(), { style: 'currency', currency: code, currencyDisplay: 'narrowSymbol' }).formatToParts(0).find((p) => p.type === 'currency')?.value;
+  return symbol && symbol !== code ? `${name} (${symbol}, ${code})` : `${name} (${code})`;
+}
+
+/** A budget as its field shows it: whole amounts without decimals, the locale's decimal mark otherwise. */
+const budgetInput = (amount: number) => (!amount ? '' : Number.isInteger(amount) ? String(amount) : centsToInput(Math.round(amount * 100)));
 
 const labelClass = 'mb-1.5 block text-sm font-medium text-ink-soft';
 const hintClass = 'mt-1 text-sm text-muted';
@@ -32,21 +49,22 @@ interface Props {
 
 /** The household's settings, shared by every member. */
 export function SettingsDialog({ store, tab, onTab, notify, onClose }: Props) {
+  const t = useT();
   return (
-    <Dialog title="Settings" onClose={onClose}>
-      <div role="tablist" aria-label="Settings sections" className="-mx-1 mb-5 flex gap-2 overflow-x-auto px-1 pb-1">
-        {TABS.map((t) => (
-          <Chip key={t.id} active={tab === t.id} onClick={() => onTab(t.id)}>
-            {t.label}
+    <Dialog title={t('settings.title')} onClose={onClose}>
+      <div role="tablist" aria-label={t('settings.sections')} className="-mx-1 mb-5 flex gap-2 overflow-x-auto px-1 pb-1">
+        {TABS.map((x) => (
+          <Chip key={x.id} active={tab === x.id} onClick={() => onTab(x.id)}>
+            {t(x.label)}
           </Chip>
         ))}
       </div>
-      {!store.live && <p className="mb-4 rounded-xl bg-sunken px-4 py-3 text-sm text-muted">These are the sample household’s settings. Changes last until the page reloads.</p>}
+      {!store.live && <p className="mb-4 rounded-xl bg-sunken px-4 py-3 text-sm text-muted">{t('settings.sample')}</p>}
       {/* Each tab copies the settings into its form when it opens: before they arrive it would show
           the defaults, and saving would overwrite the household's own. */}
       {!store.ready ? (
         <p role="status" className="py-6 text-base text-muted">
-          Loading the household’s settings
+          {t('settings.loading')}
         </p>
       ) : (
         <>
@@ -61,6 +79,7 @@ export function SettingsDialog({ store, tab, onTab, notify, onClose }: Props) {
 }
 
 function WordList({ words, onChange, placeholder, label, lower = true }: { words: string[]; onChange: (w: string[]) => void; placeholder: string; label: string; lower?: boolean }) {
+  const t = useT();
   const [draft, setDraft] = useState('');
   const add = () => {
     const w = (lower ? draft.toLowerCase() : draft).trim();
@@ -73,7 +92,7 @@ function WordList({ words, onChange, placeholder, label, lower = true }: { words
         {words.map((w) => (
           <li key={w} className="inline-flex items-center gap-1 rounded-full border border-line bg-surface py-1 pr-1 pl-3 text-sm">
             {w}
-            <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted hover:bg-stone-100 dark:hover:bg-forest-700" aria-label={`Remove ${w}`} onClick={() => onChange(words.filter((x) => x !== w))}>
+            <button type="button" className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted hover:bg-stone-100 dark:hover:bg-forest-700" aria-label={t('settings.removeWord', { word: w })} onClick={() => onChange(words.filter((x) => x !== w))}>
               <X size={14} />
             </button>
           </li>
@@ -84,7 +103,7 @@ function WordList({ words, onChange, placeholder, label, lower = true }: { words
           className={inputClass}
           value={draft}
           placeholder={placeholder}
-          aria-label={`Add to ${label.toLowerCase()}`}
+          aria-label={t('settings.addTo', { list: label.toLowerCase() })}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
@@ -94,7 +113,7 @@ function WordList({ words, onChange, placeholder, label, lower = true }: { words
           }}
         />
         <button type="button" className={secondaryButton} onClick={add}>
-          <Plus size={18} /> Add
+          <Plus size={18} /> {t('common.add')}
         </button>
       </div>
     </div>
@@ -102,18 +121,24 @@ function WordList({ words, onChange, placeholder, label, lower = true }: { words
 }
 
 function BudgetTab({ store, notify }: { store: SpendingStore; notify: (m: string) => void }) {
-  const [budget, setBudget] = useState(store.settings.monthlyBudget ? String(store.settings.monthlyBudget) : '');
-  const [currency, setCurrency] = useState(store.settings.currencySymbol);
+  const t = useT();
+  const [budget, setBudget] = useState(budgetInput(store.settings.monthlyBudget));
+  const [currency, setCurrency] = useState(store.currency);
+  // Typed the reader's way: "1.500" and "1500,50" in Dutch, "1,500" and "1500.50" in English.
+  const budgetCents = parseCents(budget, { max: 10_000_000_000 });
   const [words, setWords] = useState(store.settings.ignoredKeywords);
   const [status, setStatus] = useState<{ kind: 'idle' | 'saving' | 'saved' } | { kind: 'error'; message: string }>({ kind: 'idle' });
   const save = async () => {
     setStatus({ kind: 'saving' });
     try {
-      await store.actions.saveSettings({ monthlyBudget: parseFloat(budget) || 0, currencySymbol: currency, ignoredKeywords: words });
+      if (budgetCents === null) return;
+      await store.actions.saveSettings({ monthlyBudget: (budgetCents ?? 0) / 100, ignoredKeywords: words });
+      // The currency is the household's, for every app.
+      if (currency !== store.currency) await store.saveCurrency(currency);
       setStatus({ kind: 'saved' });
-      notify('Saved the budget');
+      notify(t('settings.budgetSaved'));
     } catch (e) {
-      setStatus({ kind: 'error', message: readError(e, "Couldn't save the budget") });
+      setStatus({ kind: 'error', message: readError(e, t('settings.budgetFailed')) });
     }
   };
   return (
@@ -121,29 +146,45 @@ function BudgetTab({ store, notify }: { store: SpendingStore; notify: (m: string
       <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
         <div>
           <label className={labelClass} htmlFor="budget">
-            Monthly budget
+            {t('settings.budget')}
           </label>
-          <input id="budget" className={`${inputClass} tabular-nums`} type="number" min="0" step="10" value={budget} placeholder="No budget" onChange={(e) => setBudget(e.target.value)} />
-          <p className={hintClass}>What the household means to spend on its cards each month. Leave it empty to compare with last month instead.</p>
+          <input
+            id="budget"
+            className={`${inputClass} tabular-nums`}
+            type="text"
+            inputMode="decimal"
+            value={budget}
+            placeholder={t('settings.noBudget')}
+            aria-invalid={budgetCents === null}
+            onChange={(e) => setBudget(e.target.value)}
+          />
+          <p className={hintClass}>{budgetCents === null ? t('settings.budgetInvalid') : t('settings.budgetHint')}</p>
         </div>
         <div>
           <label className={labelClass} htmlFor="currency">
-            Currency symbol
+            {t('settings.currency')}
           </label>
-          <input id="currency" className={inputClass} maxLength={4} value={currency} onChange={(e) => setCurrency(e.target.value)} />
+          <select id="currency" className={selectClass} value={currency} onChange={(e) => setCurrency(e.target.value)}>
+            {[...new Set([currency, ...CURRENCIES])].map((c) => (
+              <option key={c} value={c}>
+                {currencyName(c)}
+              </option>
+            ))}
+          </select>
+          <p className={hintClass}>{t('settings.currencyHint')}</p>
         </div>
       </div>
       <div>
-        <p className={labelClass}>Never count</p>
-        <p className={`${hintClass} mb-3`}>Charges whose description has one of these words don't count as spending: rent, the mortgage, paying off a card.</p>
-        <WordList words={words} onChange={setWords} placeholder="hoa, escrow" label="Words never counted" />
+        <p className={labelClass}>{t('settings.neverCount')}</p>
+        <p className={`${hintClass} mb-3`}>{t('settings.neverCountHint')}</p>
+        <WordList words={words} onChange={setWords} placeholder={t('settings.neverCountPlaceholder')} label={t('settings.neverCountList')} />
       </div>
       <div className="flex items-center justify-end gap-3">
         <p role="status" className={`text-sm ${status.kind === 'error' ? 'text-error' : 'text-link'}`}>
-          {status.kind === 'saved' ? 'Saved' : status.kind === 'error' ? status.message : ''}
+          {status.kind === 'saved' ? t('common.saved') : status.kind === 'error' ? status.message : ''}
         </p>
-        <button type="button" className={primaryButton} onClick={save} disabled={status.kind === 'saving'}>
-          {status.kind === 'saving' ? 'Saving…' : 'Save budget'}
+        <button type="button" className={primaryButton} onClick={save} disabled={status.kind === 'saving' || budgetCents === null}>
+          {status.kind === 'saving' ? t('settings.saving') : t('settings.saveBudget')}
         </button>
       </div>
     </div>
@@ -157,6 +198,7 @@ const splitWords = (s: string) =>
     .filter(Boolean);
 
 function CardForm({ card, onSave, onCancel }: { card?: Card; onSave: (c: Omit<Card, 'id'>) => Promise<void>; onCancel: () => void }) {
+  const t = useT();
   const [name, setName] = useState(card?.name ?? '');
   const [last4, setLast4] = useState(card?.last4 ?? '');
   const [issuer, setIssuer] = useState(card?.issuer ?? '');
@@ -165,7 +207,7 @@ function CardForm({ card, onSave, onCancel }: { card?: Card; onSave: (c: Omit<Ca
   return (
     <form
       className="space-y-4 rounded-2xl border border-line p-4"
-      aria-label={card ? `Edit ${card.name}` : 'New card'}
+      aria-label={card ? t('card.edit', { name: card.name }) : t('card.new')}
       onSubmit={async (e) => {
         e.preventDefault();
         if (valid) await onSave({ ...(card?.csv ? { csv: card.csv } : {}), name: name.trim(), last4: last4 || undefined, issuer: issuer.trim() || undefined, alertWords: splitWords(words) });
@@ -174,36 +216,36 @@ function CardForm({ card, onSave, onCancel }: { card?: Card; onSave: (c: Omit<Ca
       <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
         <div>
           <label className={labelClass} htmlFor="card-name">
-            Name
+            {t('common.name')}
           </label>
-          <input id="card-name" className={inputClass} value={name} maxLength={60} placeholder="Card One" onChange={(e) => setName(e.target.value)} />
+          <input id="card-name" className={inputClass} value={name} maxLength={60} placeholder={t('card.namePlaceholder')} onChange={(e) => setName(e.target.value)} />
         </div>
         <div>
           <label className={labelClass} htmlFor="card-last4">
-            Last 4 digits
+            {t('card.last4')}
           </label>
           <input id="card-last4" className={`${inputClass} tabular-nums`} inputMode="numeric" maxLength={4} value={last4} placeholder="1111" onChange={(e) => setLast4(e.target.value.replace(/\D/g, ''))} />
         </div>
       </div>
       <div>
         <label className={labelClass} htmlFor="card-issuer">
-          Bank or issuer
+          {t('card.issuer')}
         </label>
-        <input id="card-issuer" className={inputClass} value={issuer} maxLength={40} placeholder="Example Bank" onChange={(e) => setIssuer(e.target.value)} />
+        <input id="card-issuer" className={inputClass} value={issuer} maxLength={40} placeholder={t('card.issuerPlaceholder')} onChange={(e) => setIssuer(e.target.value)} />
       </div>
       <div>
         <label className={labelClass} htmlFor="card-words">
-          Alert words
+          {t('card.alertWords')}
         </label>
-        <input id="card-words" className={inputClass} value={words} placeholder="alerts@bank.example.com, purchase alert" onChange={(e) => setWords(e.target.value)} />
-        <p className={hintClass}>The address this card's purchase alerts come from, or words only those emails contain. Separate with commas.</p>
+        <input id="card-words" className={inputClass} value={words} placeholder={t('card.alertWordsPlaceholder')} onChange={(e) => setWords(e.target.value)} />
+        <p className={hintClass}>{t('card.alertWordsHint')}</p>
       </div>
       <div className="flex justify-end gap-3">
         <button type="button" className={ghostButton} onClick={onCancel}>
-          Cancel
+          {t('common.cancel')}
         </button>
         <button type="submit" className={primaryButton} disabled={!valid}>
-          Save card
+          {t('card.save')}
         </button>
       </div>
     </form>
@@ -211,14 +253,15 @@ function CardForm({ card, onSave, onCancel }: { card?: Card; onSave: (c: Omit<Ca
 }
 
 function CardsTab({ store }: { store: SpendingStore }) {
+  const t = useT();
   const [editing, setEditing] = useState<string | 'new' | null>(store.cards.length === 0 ? 'new' : null);
   const [confirm, setConfirm] = useState<string | null>(null);
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted">
-        The household's cards. Statement files and card alert emails are matched to a card by its last 4 digits, so every member's imports name a card the same way.
+        {t('cards.intro')}
       </p>
-      <ul className="divide-y divide-line" aria-label="Cards">
+      <ul className="divide-y divide-line" aria-label={t('settings.tab.cards')}>
         {store.cards.map((c) =>
           editing === c.id ? (
             <li key={c.id} className="py-3">
@@ -239,25 +282,25 @@ function CardsTab({ store }: { store: SpendingStore }) {
                   {c.last4 && <span className="ml-2 text-muted tabular-nums">•••• {c.last4}</span>}
                 </p>
                 <p className="text-sm text-muted">
-                  {[c.issuer, c.alertWords.length ? `Alerts: ${c.alertWords.join(', ')}` : 'No alert words yet', c.csv ? 'Statement columns remembered' : ''].filter(Boolean).join(' · ')}
+                  {[c.issuer, c.alertWords.length ? t('cards.alerts', { words: c.alertWords.join(', ') }) : t('cards.noAlerts'), c.csv ? t('cards.columnsRemembered') : ''].filter(Boolean).join(' · ')}
                 </p>
               </div>
               {confirm === c.id ? (
                 <span className="flex items-center gap-2 text-sm">
-                  Remove {c.name}? Its transactions stay.
+                  {t('cards.confirmRemove', { name: c.name })}
                   <button type="button" className={secondaryButton} onClick={() => (void store.actions.deleteCard(c.id), setConfirm(null))}>
-                    Remove
+                    {t('common.remove')}
                   </button>
                   <button type="button" className={ghostButton} onClick={() => setConfirm(null)}>
-                    Keep
+                    {t('cards.keep')}
                   </button>
                 </span>
               ) : (
                 <>
-                  <button type="button" className={iconButton} aria-label={`Edit ${c.name}`} onClick={() => setEditing(c.id)}>
+                  <button type="button" className={iconButton} aria-label={t('card.edit', { name: c.name })} onClick={() => setEditing(c.id)}>
                     <Pencil size={18} />
                   </button>
-                  <button type="button" className={iconButton} aria-label={`Remove ${c.name}`} onClick={() => setConfirm(c.id)}>
+                  <button type="button" className={iconButton} aria-label={t('cards.remove', { name: c.name })} onClick={() => setConfirm(c.id)}>
                     <Trash2 size={18} />
                   </button>
                 </>
@@ -276,7 +319,7 @@ function CardsTab({ store }: { store: SpendingStore }) {
         />
       ) : (
         <button type="button" className={secondaryButton} onClick={() => setEditing('new')}>
-          <Plus size={18} /> Add a card
+          <Plus size={18} /> {t('cards.add')}
         </button>
       )}
     </div>
@@ -284,6 +327,7 @@ function CardsTab({ store }: { store: SpendingStore }) {
 }
 
 function CategoriesTab({ store }: { store: SpendingStore }) {
+  const t = useT();
   const [filter, setFilter] = useState('');
   const [contains, setContains] = useState('');
   const [category, setCategory] = useState<string>(CATEGORIES[0]);
@@ -302,11 +346,11 @@ function CategoriesTab({ store }: { store: SpendingStore }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted">
-        New charges get the category of the longest phrase their description contains. Your own phrases win over the starting ones when they are more specific.
+        {t('rules.intro')}
       </p>
       <form
         className="grid gap-3 rounded-2xl border border-line p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
-        aria-label="New rule"
+        aria-label={t('rules.new')}
         onSubmit={(e) => {
           e.preventDefault();
           void add();
@@ -314,13 +358,13 @@ function CategoriesTab({ store }: { store: SpendingStore }) {
       >
         <div>
           <label className={labelClass} htmlFor="rule-contains">
-            When the shop's name contains
+            {t('rules.contains')}
           </label>
-          <input id="rule-contains" className={inputClass} value={contains} maxLength={80} placeholder="example cafe" onChange={(e) => setContains(e.target.value)} />
+          <input id="rule-contains" className={inputClass} value={contains} maxLength={80} placeholder={t('rules.containsPlaceholder')} onChange={(e) => setContains(e.target.value)} />
         </div>
         <div>
           <label className={labelClass} htmlFor="rule-category">
-            Category
+            {t('purchase.category')}
           </label>
           <input id="rule-category" className={inputClass} list="category-choices" value={category} maxLength={60} onChange={(e) => setCategory(e.target.value)} />
           <datalist id="category-choices">
@@ -330,27 +374,28 @@ function CategoriesTab({ store }: { store: SpendingStore }) {
           </datalist>
         </div>
         <button type="submit" className={primaryButton} disabled={!contains.trim() || !category.trim()}>
-          Add rule
+          {t('rules.add')}
         </button>
       </form>
-      <input className={inputClass} value={filter} placeholder="Find a rule" aria-label="Find a rule" onChange={(e) => setFilter(e.target.value)} />
-      <ul className="divide-y divide-line" aria-label="Category rules">
+      <input className={inputClass} value={filter} placeholder={t('rules.find')} aria-label={t('rules.find')} onChange={(e) => setFilter(e.target.value)} />
+      <ul className="divide-y divide-line" aria-label={t('rules.list')}>
         {shown.map((r) => (
           <li key={r.id} aria-label={r.contains} className="flex min-h-11 items-center gap-3 py-1">
             <span className="min-w-0 flex-1 truncate">{r.contains}</span>
-            <span className="text-sm text-muted">{r.category}</span>
-            <button type="button" className={iconButton} aria-label={`Remove rule ${r.contains}`} onClick={() => void store.actions.deleteRule(r.id)}>
+            <span className="text-sm text-muted">{categoryLabel(r.category)}</span>
+            <button type="button" className={iconButton} aria-label={t('rules.remove', { rule: r.contains })} onClick={() => void store.actions.deleteRule(r.id)}>
               <Trash2 size={18} />
             </button>
           </li>
         ))}
-        {shown.length === 0 && <li className="py-3 text-sm text-muted">No rules match.</li>}
+        {shown.length === 0 && <li className="py-3 text-sm text-muted">{t('rules.none')}</li>}
       </ul>
     </div>
   );
 }
 
 function EmailTab({ store }: { store: SpendingStore }) {
+  const t = useT();
   const [link, setLink] = useState('');
   const [paste, setPaste] = useState({ cards: '', categories: '', labels: '' });
   const [found, setFound] = useState<SheetSettings | null>(null);
@@ -366,7 +411,7 @@ function EmailTab({ store }: { store: SpendingStore }) {
       setFound(fromSheetTabs(await readSheetTabs(await sheetsToken(auth), link)));
     } catch (e) {
       const code = (e as { code?: string }).code;
-      setError(code === 'auth/popup-closed-by-user' ? 'Google access was not given.' : readError(e, "Couldn't read the Sheet"));
+      setError(code === 'auth/popup-closed-by-user' ? t('sheet.notGiven') : readError(e, t('sheet.readFailed')));
     } finally {
       setBusy(false);
     }
@@ -375,40 +420,40 @@ function EmailTab({ store }: { store: SpendingStore }) {
   const bringIn = async () => {
     if (!found) return;
     const r = await store.actions.importSheetSettings(found);
-    setDone(`Added ${r.cards} card${r.cards === 1 ? '' : 's'}, ${r.rules} category rule${r.rules === 1 ? '' : 's'} and ${r.labels} label${r.labels === 1 ? '' : 's'}.`);
+    setDone(t('sheet.added', { cards: t('sheet.cards', { n: r.cards }), rules: t('sheet.rules', { n: r.rules }), labels: t('sheet.labels', { n: r.labels }) }));
     setFound(null);
   };
 
   return (
     <div className="space-y-6">
-      <section className="space-y-3" aria-label="Card alert emails">
-        <h3 className={overline}>Card alert emails</h3>
+      <section className="space-y-3" aria-label={t('email.title')}>
+        <h3 className={overline}>{t('email.title')}</h3>
         <p className="text-sm text-muted">
-          Check email reads purchase alerts in the member's own Gmail, using each card's alert words and these Gmail labels. Google will warn that the app is unverified the first time. Spending only reads card alert emails and never changes your mail.
+          {t('email.intro')}
         </p>
-        <WordList words={store.settings.alertLabels} lower={false} onChange={(w) => void store.actions.saveSettings({ alertLabels: w })} placeholder="Bank/Card alerts" label="Gmail labels" />
+        <WordList words={store.settings.alertLabels} lower={false} onChange={(w) => void store.actions.saveSettings({ alertLabels: w })} placeholder={t('email.labelsPlaceholder')} label={t('email.labels')} />
       </section>
 
       <details className="rounded-2xl border border-line px-4 py-2">
-        <summary className="flex min-h-11 cursor-pointer items-center font-medium text-ink">Bring settings from a Google Sheet</summary>
+        <summary className="flex min-h-11 cursor-pointer items-center font-medium text-ink">{t('sheet.title')}</summary>
         <div className="space-y-3 pb-3">
         <p className="text-sm text-muted">
-          For households that used the Sheet and its script: brings the Cards, Categories and Alert labels tabs in once. The Sheet is only read.
+          {t('sheet.intro')}
         </p>
         <div className="flex flex-col gap-2 sm:flex-row">
-          <input className={inputClass} value={link} placeholder="https://docs.google.com/spreadsheets/d/..." aria-label="Sheet link" onChange={(e) => setLink(e.target.value)} />
+          <input className={inputClass} value={link} placeholder="https://docs.google.com/spreadsheets/d/..." aria-label={t('sheet.link')} onChange={(e) => setLink(e.target.value)} />
           <button type="button" className={secondaryButton} onClick={read} disabled={busy || !link.trim() || !store.live}>
-            {busy ? 'Reading' : 'Read the Sheet'}
+            {busy ? t('sheet.reading') : t('sheet.read')}
           </button>
         </div>
         <details className="rounded-xl border border-line px-4 py-3">
-          <summary className="min-h-8 cursor-pointer font-medium">Or paste the tabs' rows</summary>
+          <summary className="min-h-8 cursor-pointer font-medium">{t('sheet.paste')}</summary>
           <div className="mt-3 space-y-3">
             {(
               [
-                ['cards', 'Cards tab (Last4, Card, Alert source, Alert keywords)'],
-                ['categories', 'Categories tab (Merchant contains, Category)'],
-                ['labels', 'Alert labels tab'],
+                ['cards', t('sheet.cardsTab')],
+                ['categories', t('sheet.categoriesTab')],
+                ['labels', t('sheet.labelsTab')],
               ] as const
             ).map(([k, label]) => (
               <div key={k}>
@@ -419,7 +464,7 @@ function EmailTab({ store }: { store: SpendingStore }) {
               </div>
             ))}
             <button type="button" className={secondaryButton} onClick={fromPaste} disabled={!paste.cards.trim() && !paste.categories.trim() && !paste.labels.trim()}>
-              Read the rows
+              {t('sheet.readRows')}
             </button>
           </div>
         </details>
@@ -429,24 +474,28 @@ function EmailTab({ store }: { store: SpendingStore }) {
           </p>
         )}
         {found && (
-          <div role="region" className="space-y-3 rounded-2xl border border-line p-4" aria-label="Found in the Sheet">
+          <div role="region" className="space-y-3 rounded-2xl border border-line p-4" aria-label={t('sheet.found')}>
             <p>
-              Found {found.cards.length} card{found.cards.length === 1 ? '' : 's'} ({found.cards.map((c) => c.name).join(', ') || 'none'}), {found.rules.length} category rule
-              {found.rules.length === 1 ? '' : 's'} and {found.labels.length} label{found.labels.length === 1 ? '' : 's'}.
+              {t('sheet.foundText', {
+                cards: t('sheet.cards', { n: found.cards.length }),
+                names: found.cards.map((c) => c.name).join(', ') || t('sheet.noneFound'),
+                rules: t('sheet.rules', { n: found.rules.length }),
+                labels: t('sheet.labels', { n: found.labels.length }),
+              })}
             </p>
             <div className="flex justify-end gap-3">
               <button type="button" className={ghostButton} onClick={() => setFound(null)}>
-                Cancel
+                {t('common.cancel')}
               </button>
               <button type="button" className={primaryButton} onClick={bringIn}>
-                Bring them in
+                {t('sheet.bringIn')}
               </button>
             </div>
           </div>
         )}
         {done && (
           <p className="text-sm text-positive" aria-live="polite">
-            {done} Add each card's alert address under Cards so Check email finds its alerts.
+            {done} {t('sheet.doneHint')}
           </p>
         )}
       </div>

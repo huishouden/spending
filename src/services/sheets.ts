@@ -23,7 +23,7 @@ export function extractSpreadsheetId(input: string): string {
 /**
  * Robust CSV parser that handles quoted cells, commas, and newlines
  */
-export function parseCSV(text: string): string[][] {
+export function parseCSV(text: string, delimiter = ','): string[][] {
   const p: string[][] = [];
   let row: string[] = [''];
   let inQuotes = false;
@@ -37,7 +37,7 @@ export function parseCSV(text: string): string[][] {
       } else {
         inQuotes = !inQuotes;
       }
-    } else if (c === ',' && !inQuotes) {
+    } else if (c === delimiter && !inQuotes) {
       row.push('');
     } else if ((c === '\r' || c === '\n') && !inQuotes) {
       if (c === '\r' && next === '\n') {
