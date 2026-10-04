@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.0](https://github.com/huishouden/spending/compare/v2.4.0...v2.5.0) (2026-10-04)
+
+
+### Features
+
+* Spending in Spanish and Dutch ([#39](https://github.com/huishouden/spending/issues/39)) ([1d36018](https://github.com/huishouden/spending/commit/1d360186d1ded3e07824361fce8df74c335e051e))
+
 ## [2.4.0](https://github.com/huishouden/spending/compare/v2.3.1...v2.4.0) (2026-10-03)
 
 
