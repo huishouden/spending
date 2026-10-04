@@ -1,7 +1,7 @@
 import { DEFAULT_RULES } from '../lib/categorise';
 import type { CsvMapping, StatementRow } from '../lib/csvImport';
 import type { Mailbox } from '../lib/mail';
-import type { MailStatus } from '../services/mailApi';
+import type { MailStatus, ReviewAnswer, ReviewItem } from '../services/mailApi';
 import { planImport, statementIds, type AlertTx, type Plan } from '@huishouden/pwa-kit/spending-core';
 import type { SheetSettings } from '../lib/sheetSettings';
 import {
@@ -93,7 +93,7 @@ export interface AlertInboxes {
   status: MailStatus | null;
   /** The last action's failure, in words. */
   error: string | null;
-  busy: 'connect' | 'check' | 'disconnect' | null;
+  busy: 'connect' | 'check' | 'disconnect' | 'undo' | null;
   /** Admins may disconnect any inbox; members their own. */
   isAdmin: boolean;
   refresh(): Promise<MailStatus | null>;
@@ -102,6 +102,12 @@ export interface AlertInboxes {
   /** Every inbox checked now, with the household's latest cards and labels. Rejects with the failure in words. */
   checkNow(): Promise<MailStatus | null>;
   disconnect(id: string): Promise<void>;
+  /** The emails of an inbox (the caller's own) that couldn't be read. Rejects with the failure in words. */
+  review(inbox: string): Promise<ReviewItem[]>;
+  /** Not a purchase, or entered by hand: off the list for good. Returns what is left. */
+  answer(inbox: string, msg: string, answer: ReviewAnswer): Promise<ReviewItem[]>;
+  /** Deletes the transactions of the inbox's last import. */
+  undo(inbox: string, importId: string): Promise<void>;
 }
 
 export interface SpendingStore {

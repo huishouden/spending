@@ -1,10 +1,12 @@
+import { useState } from 'react';
 import { Mail, RefreshCw } from 'lucide-react';
 import { agoWords } from '@huishouden/pwa-kit/time';
 import { useClock } from '@huishouden/pwa-kit/react/clock';
 import { ghostButton, overline, primaryButton, secondaryButton } from '@huishouden/pwa-kit/react/ui';
-import type { AlertInboxes as Inboxes } from '../data/store';
+import type { AlertInboxes as Inboxes, SpendingStore } from '../data/store';
 import type { InboxStatus } from '../services/mailApi';
 import { useT } from '../i18n';
+import { InboxReview } from './InboxReview';
 
 /** Errors that stop an inbox's checks until someone connects it again. */
 export const STOPPED = ['revoked', 'not-member', 'signed-out'];
@@ -23,9 +25,11 @@ const ERROR_KEYS = {
  * connects one (Google's account chooser, read-only); the calendar Worker checks each every few
  * minutes as whoever connected it.
  */
-export function AlertInboxSection({ inboxes }: { inboxes: Inboxes }) {
+export function AlertInboxSection({ store }: { store: SpendingStore }) {
   const t = useT();
   const { now } = useClock();
+  const { inboxes } = store;
+  const [reviewing, setReviewing] = useState<InboxStatus | null>(null);
   const list = inboxes.status?.inboxes ?? [];
   const busy = inboxes.busy !== null;
   return (
@@ -39,7 +43,7 @@ export function AlertInboxSection({ inboxes }: { inboxes: Inboxes }) {
           {inboxes.status && (
             <ul className="divide-y divide-line rounded-2xl border border-line" aria-label={t('inbox.list')}>
               {list.map((i) => (
-                <InboxRow key={i.id} inbox={i} inboxes={inboxes} now={now} />
+                <InboxRow key={i.id} inbox={i} inboxes={inboxes} now={now} onReview={() => setReviewing(i)} />
               ))}
               {list.length === 0 && <li className="px-4 py-3 text-sm text-muted">{t('inbox.none')}</li>}
             </ul>
@@ -61,6 +65,7 @@ export function AlertInboxSection({ inboxes }: { inboxes: Inboxes }) {
           )}
         </>
       )}
+      {reviewing && <InboxReview inbox={reviewing} store={store} onClose={() => setReviewing(null)} />}
       <details className="rounded-2xl border border-line px-4 py-2">
         <summary className="flex min-h-11 cursor-pointer items-center font-medium text-ink">{t('inbox.privacyTitle')}</summary>
         <div className="space-y-2 pb-3 text-sm text-muted">
@@ -72,8 +77,11 @@ export function AlertInboxSection({ inboxes }: { inboxes: Inboxes }) {
   );
 }
 
-function InboxRow({ inbox, inboxes, now }: { inbox: InboxStatus; inboxes: Inboxes; now: number }) {
+function InboxRow({ inbox, inboxes, now, onReview }: { inbox: InboxStatus; inboxes: Inboxes; now: number; onReview: () => void }) {
   const t = useT();
+  const [confirmUndo, setConfirmUndo] = useState(false);
+  const last = inbox.lastImport;
+  const canUndo = !!last && last.done && !last.undone && last.added > 0 && (inbox.mine || inboxes.isAdmin);
   const stopped = !!inbox.error && STOPPED.includes(inbox.error);
   const errorKey = inbox.error ? ERROR_KEYS[inbox.error as keyof typeof ERROR_KEYS] : undefined;
   return (
@@ -97,6 +105,40 @@ function InboxRow({ inbox, inboxes, now }: { inbox: InboxStatus; inboxes: Inboxe
         {inbox.checking ? t('inbox.checking') : inbox.lastChecked ? t('inbox.checked', { ago: agoWords(inbox.lastChecked, now) }) : t('inbox.notChecked')}
         {inbox.lastAlertAt && inbox.lastAdded ? ` · ${t('inbox.found', { n: inbox.lastAdded, ago: agoWords(inbox.lastAlertAt, now) })}` : ''}
       </p>
+      {last && (
+        <p className="text-sm text-muted">
+          {last.undone
+            ? t('inbox.lastImportUndone', { ago: agoWords(last.at, now) })
+            : last.review > 0
+              ? t('inbox.lastImportReview', { n: last.added, m: last.review, ago: agoWords(last.at, now) })
+              : t('inbox.lastImport', { n: last.added, ago: agoWords(last.at, now) })}
+        </p>
+      )}
+      {(canUndo || (inbox.mine && (inbox.review ?? 0) > 0)) && (
+        <div className="flex flex-wrap gap-2">
+          {inbox.mine && (inbox.review ?? 0) > 0 && (
+            <button type="button" className={secondaryButton} onClick={onReview}>
+              {t('inbox.review', { n: inbox.review ?? 0 })}
+            </button>
+          )}
+          {canUndo &&
+            (confirmUndo ? (
+              <>
+                <span className="self-center text-sm text-ink">{t('inbox.undoConfirm', { n: last!.added })}</span>
+                <button type="button" className={primaryButton} disabled={inboxes.busy !== null} onClick={() => void inboxes.undo(inbox.id, last!.id).finally(() => setConfirmUndo(false))}>
+                  {t('inbox.undoYes')}
+                </button>
+                <button type="button" className={ghostButton} onClick={() => setConfirmUndo(false)}>
+                  {t('common.cancel')}
+                </button>
+              </>
+            ) : (
+              <button type="button" className={ghostButton} disabled={inboxes.busy !== null} onClick={() => setConfirmUndo(true)}>
+                {t('inbox.undo')}
+              </button>
+            ))}
+        </div>
+      )}
       {errorKey && <p className={`text-sm ${stopped ? 'font-medium text-attention' : 'text-muted'}`}>{t(errorKey)}</p>}
     </li>
   );
