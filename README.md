@@ -109,3 +109,10 @@ Security rules live in [huishouden/rules](https://github.com/huishouden/rules) `
 Built on [pwa-kit](https://github.com/huishouden/pwa-kit) and follows its
 [standard](https://github.com/huishouden/pwa-kit/blob/main/STANDARD.md). Merges to `main` deploy to
 Firebase Hosting (project `huishouden-piekstra`), then run the e2e tests and refresh the screenshots.
+
+## License
+
+Source available under [PolyForm Shield 1.0.0](LICENSE): you may use, study and modify this code
+for any purpose except providing a product that competes with Huishouden.
+
+Huishouden and its logo are the project's brand; please don't use them for other products.
