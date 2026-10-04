@@ -2,7 +2,8 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { agoWords } from '@huishouden/pwa-kit/time';
 import { chartColours } from '@huishouden/pwa-kit/chart';
 import { useTheme } from '@huishouden/pwa-kit/react/theme';
-import { cardClass, ErrorNotice, iconButton, primaryButton } from '@huishouden/pwa-kit/react/ui';
+import { cardClass, ErrorNotice, ghostButton, iconButton, primaryButton } from '@huishouden/pwa-kit/react/ui';
+import { STOPPED } from './AlertInboxes';
 import type { SpendingStore } from '../data/store';
 import type { useEmailCheck } from '../data/useEmailCheck';
 import { lastUpdate, money, standing, type MonthKey, type MonthSummary } from '../lib/month';
@@ -19,16 +20,20 @@ interface Props {
   email: ReturnType<typeof useEmailCheck>;
   onAdd: () => void;
   onRetry: () => void;
+  /** Settings > Email, where an inbox that stopped is reconnected. */
+  onInboxes: () => void;
 }
 
 /** The answer to "how are we doing this month?", big enough to read across the room. */
-export function Glance({ summary, months, onMonth, currency, store, now, email, onAdd, onRetry }: Props) {
+export function Glance({ summary, months, onMonth, currency, store, now, email, onAdd, onRetry, onInboxes }: Props) {
   const t = useT();
   const line = standing(summary, currency);
   const i = months.indexOf(summary.key);
   const older = months[i + 1];
   const newer = i > 0 ? months[i - 1] : undefined;
-  const updated = lastUpdate(store.records, store.settings.emailCheckedAt);
+  // The alert inboxes' last check (the Worker checks every few minutes), or the last in-app check.
+  const updated = lastUpdate(store.records, Math.max(store.settings.emailCheckedAt ?? 0, store.inboxes.status?.lastChecked ?? 0) || undefined);
+  const stopped = store.inboxes.status?.inboxes.find((i) => i.error && STOPPED.includes(i.error));
   const status =
     email.state.status === 'checking'
       ? t('glance.checking')
@@ -62,6 +67,14 @@ export function Glance({ summary, months, onMonth, currency, store, now, email, 
         <button type="button" className={primaryButton} onClick={onAdd}>
           <Plus size={18} /> {t('add.title')}
         </button>
+        {stopped && (
+          <p className="flex w-full flex-wrap items-center gap-x-3 font-medium text-attention">
+            {t('glance.inboxStopped', { address: stopped.address })}
+            <button type="button" className={ghostButton} onClick={onInboxes}>
+              {t('glance.reconnect')}
+            </button>
+          </p>
+        )}
         {email.state.status === 'error' && (
           <div className="w-full">
             <ErrorNotice message={email.state.message} onRetry={onRetry} />

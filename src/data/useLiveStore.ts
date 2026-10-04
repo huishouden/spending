@@ -8,7 +8,7 @@ import type { SpendSettings } from './model';
 import { setHouseholdCurrency } from '@huishouden/pwa-kit/household';
 import { spendingCurrency } from '../lib/month';
 import { t } from '../i18n';
-import { derive, emptyDocs, makeActions, type Docs, type SpendingStore, type Write } from './store';
+import { derive, emptyDocs, makeActions, type AlertInboxes, type Docs, type SpendingStore, type Write } from './store';
 
 /** Firestore takes at most 500 writes per batch. */
 const BATCH = 400;
@@ -18,7 +18,7 @@ const SEEN_MAX = 500;
  * The household's spending data, live from Firestore. Writes go through the persistent cache, so
  * they show at once (also offline) and reach the server when they can; a failure is reported.
  */
-export function useLiveStore(householdId: string | null, me: string, fallback: SpendSettings, onError: (message: string) => void, householdCurrency?: string): SpendingStore {
+export function useLiveStore(householdId: string | null, me: string, fallback: SpendSettings, onError: (message: string) => void, inboxes: AlertInboxes, householdCurrency?: string): SpendingStore {
   const [docs, setDocs] = useState<Docs>(emptyDocs);
   const [answered, setAnswered] = useState({ tx: false, settings: false });
   const docsRef = useRef(docs);
@@ -115,5 +115,5 @@ export function useLiveStore(householdId: string | null, me: string, fallback: S
     },
     [householdId],
   );
-  return { live: true, ready: answered.tx && answered.settings, me, ...derived, actions, mail, currency, saveCurrency };
+  return { live: true, ready: answered.tx && answered.settings, me, ...derived, actions, mail, inboxes, currency, saveCurrency };
 }

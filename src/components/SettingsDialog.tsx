@@ -13,6 +13,7 @@ import { centsToInput, parseCents } from '@huishouden/pwa-kit/money';
 import { getLocale } from '@huishouden/pwa-kit/i18n';
 import { categoryLabel } from '../lib/month';
 import { t as tt, useT } from '../i18n';
+import { AlertInboxSection } from './AlertInboxes';
 
 export type SettingsTab = 'budget' | 'cards' | 'categories' | 'email';
 
@@ -426,6 +427,7 @@ function EmailTab({ store }: { store: SpendingStore }) {
 
   return (
     <div className="space-y-6">
+      {store.inboxes.available && <AlertInboxSection inboxes={store.inboxes} />}
       <section className="space-y-3" aria-label={t('email.title')}>
         <h3 className={overline}>{t('email.title')}</h3>
         <p className="text-sm text-muted">

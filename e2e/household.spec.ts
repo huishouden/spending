@@ -58,7 +58,7 @@ test('the glance: spent this month, what is left of the budget, and the pace', a
   await expect(glance(page).getByRole('heading')).toHaveText('$1,388 spent in September');
   await expect(glance(page)).toContainText('$612 left of $2,000 · on track');
   await expect(glance(page).getByRole('img', { name: '69% of the budget spent, 90% of the month gone' })).toBeVisible();
-  await expect(glance(page)).toContainText('Updated 2 hours ago from email');
+  await expect(glance(page)).toContainText('Updated 3 minutes ago from email');
 
   // Last month, and back.
   await glance(page).getByRole('button', { name: 'Previous month' }).click();

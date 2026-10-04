@@ -1,8 +1,8 @@
 import { DEFAULT_RULES } from '../lib/categorise';
 import type { CsvMapping, StatementRow } from '../lib/csvImport';
 import type { Mailbox } from '../lib/mail';
-import type { AlertTx } from '../lib/alertSync';
-import { planImport, statementIds, type Plan } from '../lib/matching';
+import type { MailStatus } from '../services/mailApi';
+import { planImport, statementIds, type AlertTx, type Plan } from '@huishouden/pwa-kit/spending-core';
 import type { SheetSettings } from '../lib/sheetSettings';
 import {
   cardDoc,
@@ -82,6 +82,28 @@ export interface MailAccess {
   markSeen(ids: string[]): void;
 }
 
+/**
+ * Gmail accounts the household's card alerts arrive at, connected by any admin or member and checked
+ * every few minutes by the calendar Worker as that member, with no app open.
+ */
+export interface AlertInboxes {
+  /** False in a build without the Worker: the in-browser check of the member's own Gmail stays. */
+  available: boolean;
+  /** Null until the Worker has answered. */
+  status: MailStatus | null;
+  /** The last action's failure, in words. */
+  error: string | null;
+  busy: 'connect' | 'check' | 'disconnect' | null;
+  /** Admins may disconnect any inbox; members their own. */
+  isAdmin: boolean;
+  refresh(): Promise<MailStatus | null>;
+  /** Google's account chooser (from a tap), then the Worker keeps read-only access to that account. */
+  connect(): Promise<void>;
+  /** Every inbox checked now, with the household's latest cards and labels. Rejects with the failure in words. */
+  checkNow(): Promise<MailStatus | null>;
+  disconnect(id: string): Promise<void>;
+}
+
 export interface SpendingStore {
   live: boolean;
   /** False until the first answer from the store. */
@@ -95,6 +117,7 @@ export interface SpendingStore {
   records: SpendingRecord[];
   actions: SpendingActions;
   mail: MailAccess;
+  inboxes: AlertInboxes;
   /** The currency amounts are shown in: the household's (see `spendingCurrency`). */
   currency: string;
   /** Sets the household's currency, for every app (households/{id}.currency). */

@@ -1,6 +1,6 @@
 import { containsKeyword, DEFAULT_IGNORED_PATTERNS, parseCSV } from '../services/sheets';
 import { categorise, type CategoryRule } from './categorise';
-import type { TxFields } from './matching';
+import type { TxFields } from '@huishouden/pwa-kit/spending-core';
 
 /**
  * Statement files (CSV) from any bank or card: finds the header row, works out which columns hold
