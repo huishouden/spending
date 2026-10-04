@@ -74,8 +74,8 @@ Core Web Vitals and page loads, the app version, device type, and the country an
 derives from the request; and anonymous usage counts per visit: `check email` (and whether it was tapped or ran on open), `add spending`, `import statement`, and which view or settings tab is open. Households are counted by a
 hash of the id. No names, emails, entries, free text or precise location, and no cookie or stored
 id: nothing links one visit to the next. When the browser sends Global Privacy Control or Do Not
-Track, usage counts are skipped; errors and speed still go. Builds without the `VITE_NEWRELIC_*`
-repo variables (local, staging) send nothing. The page people see is
+Track, usage counts are skipped; errors and speed still go. Local builds, staging and automated
+browsers send nothing. The page people see is
 [huishouden-piekstra.web.app/privacy](https://huishouden-piekstra.web.app/privacy); details in pwa-kit
 [docs/observability.md](https://github.com/huishouden/pwa-kit/blob/main/docs/observability.md).
 
