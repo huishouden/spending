@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { openAppSettings } from '@huishouden/pwa-kit/e2e';
 import { alerts } from './fixtures/gmail';
 
 // The signed-out sample household on its own clock (27 September 2026): its own cards and rules, in
@@ -46,7 +47,7 @@ async function importStatement(page: Page) {
 }
 
 async function openSettings(page: Page, tab: string) {
-  await page.locator('hh-app-bar').getByRole('button', { name: 'Spending settings' }).click();
+  await openAppSettings(page, 'Spending settings');
   const settings = page.getByRole('dialog', { name: 'Settings' });
   await settings.getByRole('button', { name: tab, exact: true }).click();
   return settings;

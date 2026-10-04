@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Settings } from 'lucide-react';
 import { AppBar, type AppBarUser } from '@huishouden/pwa-kit/react/app-bar';
 import { useClock } from '@huishouden/pwa-kit/react/clock';
-import { iconButton, Toast, type useToast } from '@huishouden/pwa-kit/react/ui';
+import { Toast, type useToast } from '@huishouden/pwa-kit/react/ui';
 import { toYmd } from '@huishouden/pwa-kit/time';
 import { track, trackView } from '@huishouden/pwa-kit/observability';
 import type { SpendingStore } from './data/store';
@@ -30,11 +29,11 @@ export interface FrameProps {
 }
 
 /** The Huishouden app bar and the page under it. */
-export function Frame({ user, onSignIn, onSignOut, signingIn, actions, children }: FrameProps & { actions?: ReactNode; children?: ReactNode }) {
+export function Frame({ user, onSignIn, onSignOut, signingIn, onSettings, actions, children }: FrameProps & { onSettings?: () => void; actions?: ReactNode; children?: ReactNode }) {
   const t = useT();
   return (
     <div className="flex min-h-dvh flex-col bg-page font-sans text-ink antialiased lg:h-dvh lg:overflow-hidden">
-      <AppBar app={t('app.name')} glyph="card" portalUrl={PORTAL_URL} version={VERSION} user={user} signingIn={signingIn} onSignIn={onSignIn} onSignOut={onSignOut}>
+      <AppBar app={t('app.name')} glyph="card" portalUrl={PORTAL_URL} version={VERSION} user={user} signingIn={signingIn} onSignIn={onSignIn} onSignOut={onSignOut} onSettings={onSettings} settingsLabel={t('settings.open')}>
         {actions}
       </AppBar>
       <main className="mx-auto flex w-full max-w-[1200px] min-h-0 flex-1 flex-col gap-4 px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-6 sm:pb-6">
@@ -107,14 +106,8 @@ export function SpendingApp({ store, frame, toasts, banner }: Props) {
     setCategory(null);
   };
 
-  const settingsButton = (
-    <button slot="actions" type="button" className={iconButton} aria-label={t('settings.open')} onClick={() => setSettings('budget')}>
-      <Settings size={22} />
-    </button>
-  );
-
   return (
-    <Frame {...frame} actions={settingsButton}>
+    <Frame {...frame} onSettings={() => setSettings('budget')}>
       {banner}
       {!store.ready ? (
         <p className="p-2 text-lg text-muted">{t('app.loading')}</p>

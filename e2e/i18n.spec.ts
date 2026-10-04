@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectLocalized, useLanguage } from '@huishouden/pwa-kit/e2e';
+import { expectLocalized, openAppSettings, useLanguage } from '@huishouden/pwa-kit/e2e';
 import es from '../src/locales/es.json' with { type: 'json' };
 import nl from '../src/locales/nl.json' with { type: 'json' };
 
@@ -28,7 +28,7 @@ for (const [lang, messages, month] of [
 test('a budget typed the Dutch way is saved as typed', async ({ page }) => {
   await useLanguage(page, 'nl');
   await page.goto('./', { waitUntil: 'networkidle' });
-  await page.locator('hh-app-bar').getByRole('button', { name: nl['settings.open'] }).click();
+  await openAppSettings(page, nl['settings.open']);
   const settings = page.getByRole('dialog', { name: nl['settings.title'] });
   await settings.getByLabel(nl['settings.budget']).fill('1.500');
   await settings.getByRole('button', { name: nl['settings.saveBudget'] }).click();
@@ -43,7 +43,7 @@ test('the household currency: euros, written the Spanish way in Spain', async ({
   const page = await context.newPage();
   await useLanguage(page, 'es');
   await page.goto('./', { waitUntil: 'networkidle' });
-  await page.locator('hh-app-bar').getByRole('button', { name: es['settings.open'] }).click();
+  await openAppSettings(page, es['settings.open']);
   const settings = page.getByRole('dialog', { name: es['settings.title'] });
   await settings.getByLabel(es['settings.currency']).selectOption('EUR');
   await settings.getByRole('button', { name: es['settings.saveBudget'] }).click();
