@@ -427,7 +427,7 @@ function EmailTab({ store }: { store: SpendingStore }) {
 
   return (
     <div className="space-y-6">
-      {store.inboxes.available && <AlertInboxSection inboxes={store.inboxes} />}
+      {store.inboxes.available && <AlertInboxSection store={store} />}
       <section className="space-y-3" aria-label={t('email.title')}>
         <h3 className={overline}>{t('email.title')}</h3>
         <p className="text-sm text-muted">

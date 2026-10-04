@@ -30,6 +30,33 @@ test.describe('the sample household', () => {
     await section.getByText('About Gmail access').click();
     await expect(section).toContainText('at most 100 Google accounts can connect');
   });
+
+  test('last import: what it added and what needs review; an unreadable email entered by hand; undo', async ({ page }) => {
+    await page.goto('./');
+    const section = await openEmail(page);
+    const item = section.getByRole('listitem', { name: 'card-alerts@example.com' });
+    await expect(item).toContainText('Last import: 1 added, 1 needs review · 2 hours ago');
+    await item.getByRole('button', { name: 'Couldn’t read 1 email — check it' }).click();
+    const review = page.getByRole('dialog', { name: 'Emails to check' });
+    const email = review.getByRole('listitem', { name: 'Card activity on your account' });
+    await expect(email).toContainText('$23.10');
+    await email.getByRole('button', { name: 'Enter it' }).click();
+    const form = email.getByRole('form', { name: 'Enter the purchase' });
+    await expect(form.getByLabel('Amount')).toHaveValue('23.10');
+    await expect(form.getByRole('button', { name: 'Add purchase' })).toBeDisabled();
+    await form.getByLabel('Shop').fill('Corner Bakery');
+    await form.getByRole('button', { name: 'Add purchase' }).click();
+    await expect(review).toContainText('Nothing left to check.');
+    await review.getByRole('button', { name: 'Close' }).click();
+    await expect(item).toContainText('Last import: 1 added · 2 hours ago');
+    await expect(item.getByRole('button', { name: /Couldn’t read/ })).toHaveCount(0);
+
+    await item.getByRole('button', { name: 'Undo last import' }).click();
+    await expect(item).toContainText('Remove the 1 purchase it added?');
+    await item.getByRole('button', { name: 'Remove' }).click();
+    await expect(item).toContainText('Last import undone');
+    await expect(item.getByRole('button', { name: 'Undo last import' })).toHaveCount(0);
+  });
 });
 
 interface Inbox {
@@ -43,11 +70,18 @@ interface Inbox {
   lastAdded: number | null;
   error: string | null;
   checking: boolean;
+  lastImport?: { id: string; at: number; added: number; review: number; done: boolean; undone: boolean } | null;
+  review?: number;
 }
 
 /** A stubbed calendar Worker: answers /api/mail/* and records what the app sent. */
 async function stubWorker(page: Page, first: Inbox[] = []) {
-  const state = { inboxes: first, calls: [] as { path: string; body: Record<string, unknown> | null; auth: string | null }[], checking: 0 };
+  const state = {
+    inboxes: first,
+    calls: [] as { path: string; body: Record<string, unknown> | null; auth: string | null }[],
+    checking: 0,
+    review: [] as { msg: string; subject: string; sent: number; date: string; amount: number | null; reason: string }[],
+  };
   const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
   const status = () => ({ available: true, inboxes: state.inboxes, lastChecked: Math.max(0, ...state.inboxes.map((i) => i.lastChecked ?? 0)) || null });
   await page.route(`${WORKER}/**`, async (route: Route) => {
@@ -64,6 +98,14 @@ async function stubWorker(page: Page, first: Inbox[] = []) {
       state.checking = 1;
     } else if (path === '/api/mail/disconnect') {
       state.inboxes = state.inboxes.filter((i) => i.id !== body?.inbox);
+    } else if (path === '/api/mail/review') {
+      if (body) {
+        state.review = state.review.filter((r) => r.msg !== body.msg);
+        state.inboxes = state.inboxes.map((i) => ({ ...i, review: state.review.length }));
+      }
+      return route.fulfill({ json: { items: state.review }, headers: cors });
+    } else if (path === '/api/mail/undo') {
+      state.inboxes = state.inboxes.map((i) => (i.id === body?.inbox && i.lastImport ? { ...i, lastImport: { ...i.lastImport, undone: true } } : i));
     } else if (path === '/api/mail/status' && state.checking-- <= 0) {
       state.inboxes = state.inboxes.map((i) => ({ ...i, checking: false, lastChecked: now, error: null }));
     }
@@ -146,6 +188,29 @@ test.describe('with the calendar Worker (stubbed)', () => {
     const item = page.getByRole('dialog', { name: 'Settings' }).getByRole('listitem', { name: 'alerts.example@example.com' });
     await expect(item).toContainText('Google access was removed. Reconnect to keep checking.');
     await expect(item.getByRole('button', { name: 'Reconnect' })).toBeVisible();
+  });
+
+  test('review and undo go to the Worker for that inbox and import', async ({ page }) => {
+    const now = Date.now();
+    const worker = await stubWorker(page, [
+      { id: 'ib-alerts', address: 'alerts.example@example.com', by: 'sample@example.com', mine: true, connectedAt: now, lastChecked: now - 60_000, lastAlertAt: now - 60_000, lastAdded: 2, error: null, checking: false, lastImport: { id: 'im-abc', at: now - 60_000, added: 2, review: 1, done: true, undone: false }, review: 1 },
+    ]);
+    worker.review = [{ msg: 'm-1', subject: 'Your card was used', sent: now - 120_000, date: '2026-10-02', amount: 4.5, reason: 'no-merchant' }];
+    await stubGoogle(page);
+    await page.goto('./');
+    const section = await openEmail(page);
+    const item = section.getByRole('listitem', { name: 'alerts.example@example.com' });
+    await expect(item).toContainText('Last import: 2 added, 1 needs review');
+    await item.getByRole('button', { name: 'Couldn’t read 1 email — check it' }).click();
+    const review = page.getByRole('dialog', { name: 'Emails to check' });
+    await review.getByRole('listitem', { name: 'Your card was used' }).getByRole('button', { name: 'Not a purchase' }).click();
+    await expect(review).toContainText('Nothing left to check.');
+    expect(worker.calls.find((c) => c.path === '/api/mail/review' && c.body)!.body).toEqual({ household: 'sample', inbox: 'ib-alerts', msg: 'm-1', answer: 'not-purchase' });
+    await review.getByRole('button', { name: 'Close' }).click();
+    await item.getByRole('button', { name: 'Undo last import' }).click();
+    await item.getByRole('button', { name: 'Remove' }).click();
+    await expect(item).toContainText('Last import undone');
+    expect(worker.calls.find((c) => c.path === '/api/mail/undo')!.body).toEqual({ household: 'sample', inbox: 'ib-alerts', importId: 'im-abc' });
   });
 
   test('Gmail left unticked in Google’s window is said in words', async ({ page }) => {

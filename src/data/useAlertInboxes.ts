@@ -4,7 +4,7 @@ import { googleAuthCode } from '@huishouden/pwa-kit/google-token';
 import { GMAIL_READONLY_SCOPE } from '@huishouden/pwa-kit/gmail';
 import { popupBlocked, popupCancelled } from '@huishouden/pwa-kit/feedback';
 import { track } from '@huishouden/pwa-kit/observability';
-import { mailApi, MailCallError, MAIL_URL, type Caller, type MailStatus } from '../services/mailApi';
+import { mailApi, MailCallError, MAIL_URL, type Caller, type MailStatus, type ReviewAnswer } from '../services/mailApi';
 import { t } from '../i18n';
 import type { AlertInboxes } from './store';
 
@@ -28,6 +28,8 @@ export function inboxError(e: unknown): string | null {
       return t('inbox.err.notAllowed');
     case 'firestore-quota':
       return t('inbox.err.quota');
+    case 'not-last-import':
+      return t('inbox.err.notLastImport');
     case 'google-config':
     case 'not-configured':
       return t('inbox.err.unavailable');
@@ -149,7 +151,31 @@ export function useAlertInboxes({ householdId, caller, isAdmin, code, base = MAI
       disconnect: async (id: string) => {
         await act('disconnect', () => run((c, h) => api.disconnect(c, h, id)));
       },
+      review: async (inbox: string) => {
+        const c = deps.current.caller();
+        if (!c || !householdId) return [];
+        try {
+          return (await api.review(c, householdId, inbox)).items;
+        } catch (e) {
+          throw new Error(inboxError(e) ?? t('inbox.err.network'));
+        }
+      },
+      answer: async (inbox: string, msg: string, answer: ReviewAnswer) => {
+        const c = deps.current.caller();
+        if (!c || !householdId) return [];
+        try {
+          const { items } = await api.answer(c, householdId, inbox, msg, answer);
+          void refresh();
+          return items;
+        } catch (e) {
+          throw new Error(inboxError(e) ?? t('inbox.err.network'));
+        }
+      },
+      undo: async (inbox: string, importId: string) => {
+        track('undo alert import');
+        await act('undo', () => run((c, h) => api.undo(c, h, inbox, importId)));
+      },
     }),
-    [base, status, error, busy, isAdmin, refresh, act, run, api],
+    [base, status, error, busy, isAdmin, refresh, act, run, api, householdId],
   );
 }

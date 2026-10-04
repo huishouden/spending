@@ -35,7 +35,7 @@ household's data in Firestore under `households/{id}/`:
 | Budget (none: compared with last month), currency, words never counted (rent, card payments), Gmail labels | Settings > Budget, Settings > Email | `spendingSettings/main` |
 | Statement files | Add spending > Import a statement: any bank's or card's CSV; columns and sign found from the file, remembered per card | `spendingTransactions` (`source: statement`) |
 | Alert inboxes: the Gmail accounts card alerts arrive at (any account, not only the one signed in) | Settings > Email > Connect alert inbox: Google's account chooser, read-only Gmail. Any admin or member; several allowed | `spendingInboxes` (address, who connected it, last result); the access itself only in the calendar Worker, sealed |
-| Card purchase alert emails | Checked every 5 minutes by the calendar Worker, with no app open, as the member who connected each inbox: each card's alert words and the household's labels, parsed by the kit's `spending-core` exactly as the app would. Add spending > Check email and Settings > Email > Check now check at once; the Overview says when they last ran ("Updated 3 minutes ago from email") | `spendingTransactions` (`source: alert`) |
+| Card purchase alert emails | Checked every 5 minutes by the calendar Worker, with no app open, as the member who connected each inbox: each card's alert words and the household's labels, parsed by the kit's `spending-core` exactly as the app would (`readAlert`: only purchases a rule reads with confidence; the rest is left alone or listed for review). Add spending > Check email and Settings > Email > Check now check at once; the Overview says when they last ran ("Updated 3 minutes ago from email") | `spendingTransactions` (`source: alert`) |
 
 Every import is categorised by the household's rules and de-duplicated against what is there: the
 same card and amount within 3 days with a similar description is the same purchase (the Apps
@@ -45,8 +45,13 @@ purchase, since the statement has the real date and the bank's name for the shop
 **Alert inboxes** (huishouden/calendar's README, "Spending's alert inboxes", has the design). Each
 inbox shows who connected it, when it was last checked, when it last found purchases, and what
 stopped it: Google access removed (Reconnect), nothing to search for (add alert words), Gmail not
-answering. Disconnect (whoever connected it, or an admin) removes Google's access and everything
-kept for it; the purchases it found stay. Gmail access is a restricted Google permission: until
+answering. It also shows the last import: "Last import: 3 added, 1 needs review". The Worker writes
+a purchase only when it reads the shop and the amount with confidence; emails that look like
+purchases but can't be read are listed for the member who connected the inbox (only them: it is
+their mail), with each email's subject and date, to answer Not a purchase or Enter it (shop, amount,
+date, card by hand). Undo last import (whoever connected it, or an admin) removes the purchases that
+import added, and they are not added again. Disconnect (whoever connected it, or an admin) removes
+Google's access and everything kept for it; the purchases it found stay. Gmail access is a restricted Google permission: until
 Google has reviewed the app, its window warns that the app is unverified, and at most 100 Google
 accounts can connect. The Worker only searches the household's alert words and labels, and keeps
 only what Spending writes for each purchase. A build without the Worker (`VITE_CALENDAR_URL` unset)

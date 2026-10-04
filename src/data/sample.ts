@@ -3,7 +3,7 @@ import type { Auth } from 'firebase/auth';
 import type { Mailbox, MailMessage } from '../lib/mail';
 import { gmailError, gmailMailbox, GmailError } from '@huishouden/pwa-kit/gmail';
 import { checkAlerts, NothingToSearch } from '@huishouden/pwa-kit/spending-core';
-import type { MailStatus } from '../services/mailApi';
+import type { MailStatus, ReviewItem } from '../services/mailApi';
 import { chooserCode, useAlertInboxes } from './useAlertInboxes';
 import { t } from '../i18n';
 import { cardDoc, DEFAULT_SPEND_SETTINGS, ruleDoc, type SpendSettings } from './model';
@@ -126,9 +126,23 @@ const SAMPLE_INBOX = 'card-alerts@example.com';
 export function sampleInboxStatus(now: number): MailStatus {
   return {
     available: true,
-    inboxes: [{ id: 'ib-sample', address: SAMPLE_INBOX, by: SAMPLE_ME, mine: true, connectedAt: now - 30 * 1440 * MIN, lastChecked: now - 3 * MIN, lastAlertAt: now - 120 * MIN, lastAdded: 1, error: null, checking: false }],
+    inboxes: [
+      {
+        id: 'ib-sample', address: SAMPLE_INBOX, by: SAMPLE_ME, mine: true, connectedAt: now - 30 * 1440 * MIN, lastChecked: now - 3 * MIN, lastAlertAt: now - 120 * MIN, lastAdded: 1, error: null, checking: false,
+        lastImport: { id: 'im-sample', at: now - 120 * MIN, added: 1, review: 1, done: true, undone: false },
+        review: 1,
+      },
+    ],
     lastChecked: now - 3 * MIN,
   };
+}
+
+/** The sample inbox's one email that couldn't be read: no shop named. */
+export function sampleReview(now: number): ReviewItem[] {
+  const sent = now - 125 * MIN;
+  const d = new Date(sent);
+  const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return [{ msg: 'sample-review-1', subject: 'Card activity on your account', sent, date, amount: 23.1, reason: 'no-merchant' }];
 }
 
 /** A stand-in signed-in member for browser tests against a stubbed Worker. */
@@ -179,6 +193,7 @@ export function useSampleStore(read: () => number = Date.now): SpendingStore {
   const [inboxStatus, setInboxStatus] = useState<MailStatus>(() => sampleInboxStatus(read()));
   const [inboxError, setInboxError] = useState<string | null>(null);
   const [inboxBusy, setInboxBusy] = useState<AlertInboxes['busy']>(null);
+  const reviewList = useRef<ReviewItem[]>(sampleReview(read()));
   const local = useMemo<AlertInboxes>(() => {
     const update = (patch: (s: MailStatus) => MailStatus) => setInboxStatus((s) => patch(s));
     return {
@@ -221,6 +236,17 @@ export function useSampleStore(read: () => number = Date.now): SpendingStore {
         }
       },
       disconnect: async (id) => update((s) => ({ ...s, inboxes: s.inboxes.filter((i) => i.id !== id) })),
+      review: async (inbox) => (inbox === 'ib-sample' ? reviewList.current : []),
+      answer: async (inbox, msg) => {
+        reviewList.current = reviewList.current.filter((r) => r.msg !== msg);
+        const left = reviewList.current.length;
+        update((s) => ({ ...s, inboxes: s.inboxes.map((i) => (i.id === inbox ? { ...i, review: left, ...(i.lastImport ? { lastImport: { ...i.lastImport, review: left } } : {}) } : i)) }));
+        return reviewList.current;
+      },
+      undo: async (inbox, importId) => {
+        // The sample's last import wrote nothing that is still here to delete: it is only marked undone.
+        update((s) => ({ ...s, inboxes: s.inboxes.map((i) => (i.id === inbox && i.lastImport?.id === importId ? { ...i, lastImport: { ...i.lastImport, undone: true } } : i)) }));
+      },
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inboxStatus, inboxError, inboxBusy]);
