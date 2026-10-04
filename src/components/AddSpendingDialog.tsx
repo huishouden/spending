@@ -11,18 +11,25 @@ interface Props {
   onImport: () => void;
   /** Settings > Cards, when no card says what its alert emails look like yet. */
   onCards: () => void;
+  /** Settings > Email, to connect the Gmail account the alerts arrive at. */
+  onInboxes: () => void;
   onClose: () => void;
 }
 
 /** The two ways spending comes in: card alert emails, and statement files. */
-export function AddSpendingDialog({ store, checking, onCheckEmail, onImport, onCards, onClose }: Props) {
+export function AddSpendingDialog({ store, checking, onCheckEmail, onImport, onCards, onInboxes, onClose }: Props) {
   const t = useT();
   const canSearch = store.cards.some((c) => c.alertWords.length > 0) || store.settings.alertLabels.length > 0;
-  const firstTime = store.live && canSearch && !store.mail.stored();
+  const { inboxes } = store;
+  // With alert inboxes, Check email needs one connected first.
+  const needsInbox = inboxes.available && inboxes.status !== null && inboxes.status.available && inboxes.status.inboxes.length === 0;
+  const firstTime = inboxes.available ? needsInbox && canSearch : store.live && canSearch && !store.mail.stored();
   return (
     <Dialog title={t('add.title')} onClose={onClose}>
       <div className="space-y-3">
-        {canSearch ? (
+        {canSearch && needsInbox ? (
+          <Choice icon={<Mail size={22} />} title={t('add.connectInbox')} text={t('add.connectInboxText')} onClick={onInboxes} />
+        ) : canSearch ? (
           <Choice icon={<Mail size={22} />} title={t('add.checkEmail')} text={t('add.checkEmailText')} onClick={onCheckEmail} disabled={checking} />
         ) : (
           <Choice
@@ -35,7 +42,7 @@ export function AddSpendingDialog({ store, checking, onCheckEmail, onImport, onC
         <Choice icon={<FileUp size={22} />} title={t('import.title')} text={t('add.importText')} onClick={onImport} />
       </div>
       {firstTime && (
-        <p className="mt-4 text-sm text-muted">{t('add.unverified')}</p>
+        <p className="mt-4 text-sm text-muted">{inboxes.available ? t('inbox.unverified') : t('add.unverified')}</p>
       )}
     </Dialog>
   );

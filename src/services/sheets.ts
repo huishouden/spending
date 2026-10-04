@@ -88,39 +88,4 @@ export const DEFAULT_IGNORED_PATTERNS = [
   'payroll',
 ];
 
-export function cleanCategoryName(cat: string): string {
-  const trimmed = (cat || '').trim();
-  if (!trimmed) return 'Miscellaneous';
-
-  const lower = trimmed.toLowerCase();
-  if (lower.includes('groc') || lower.includes('supermarket') || lower.includes('costco') || lower.includes('trader joe')) {
-    return 'Groceries';
-  }
-  if (lower.includes('dining') || lower.includes('restaurant') || lower.includes('food') || lower.includes('cafe') || lower.includes('coffee') || lower.includes('doordash') || lower.includes('uber eats')) {
-    return 'Dining & Food';
-  }
-  if (lower.includes('gas') || lower.includes('fuel') || lower.includes('ev charge') || lower.includes('transit') || lower.includes('parking') || lower.includes('uber') || lower.includes('lyft')) {
-    return 'Gas & Transport';
-  }
-  if (lower.includes('shop') || lower.includes('amazon') || lower.includes('target') || lower.includes('clothing') || lower.includes('electronics')) {
-    return 'Shopping & Retail';
-  }
-  if (lower.includes('sub') || lower.includes('stream') || lower.includes('netflix') || lower.includes('spotify') || lower.includes('apple') || lower.includes('software')) {
-    return 'Subscriptions & Tech';
-  }
-  if (lower.includes('travel') || lower.includes('airline') || lower.includes('flight') || lower.includes('hotel') || lower.includes('airbnb')) {
-    return 'Travel & Lodging';
-  }
-  if (lower.includes('entertain') || lower.includes('movie') || lower.includes('concert') || lower.includes('recreation') || lower.includes('game')) {
-    return 'Entertainment';
-  }
-  if (lower.includes('health') || lower.includes('pharmacy') || lower.includes('doctor') || lower.includes('gym') || lower.includes('fitness') || lower.includes('wellness')) {
-    return 'Health & Personal Care';
-  }
-  if (lower.includes('home') || lower.includes('repair') || lower.includes('hardware') || lower.includes('garden') || lower.includes('home depot')) {
-    return 'Home & Garden';
-  }
-
-  // Capitalize first letter of words
-  return trimmed.replace(/\b\w/g, (c) => c.toUpperCase());
-}
+export { cleanCategoryName } from '@huishouden/pwa-kit/spending-core';

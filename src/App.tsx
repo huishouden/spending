@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { signInSilently } from '@huishouden/pwa-kit/auth';
 import { markJoined, saveMyProfile, watchHousehold, type HouseholdState } from '@huishouden/pwa-kit/household';
-import { refusal } from '@huishouden/pwa-kit/roles';
+import { householdRole, refusal } from '@huishouden/pwa-kit/roles';
 import { seesMoney } from './lib/access';
 import { popupCancelled } from '@huishouden/pwa-kit/feedback';
 import { ClockProvider } from '@huishouden/pwa-kit/react/clock';
@@ -10,6 +10,7 @@ import { cardClass, primaryButton, SampleBanner, useToast } from '@huishouden/pw
 import { auth, googleClientId, signInWithGoogle, signOutEverywhere } from './services/auth';
 import { getDb } from './services/firestoreTransactions';
 import { useLiveStore } from './data/useLiveStore';
+import { chooserCode, useAlertInboxes } from './data/useAlertInboxes';
 import { SAMPLE_NOW, useSampleStore } from './data/sample';
 import { DEFAULT_SPEND_SETTINGS } from './data/model';
 import { PORTAL_URL } from './config/portal';
@@ -65,7 +66,7 @@ function SignedIn({ user, frame }: { user: User; frame: FrameProps }) {
 
   // Helpers and kids never see the household's money (the rules refuse every read): no listeners, no email checks.
   if (state.status === 'ready' && !seesMoney(state.household, email)) return <MoneyRefusal frame={frame} />;
-  if (state.status === 'ready') return <LiveApp householdId={state.household.id} currency={state.household.currency} email={email} frame={frame} />;
+  if (state.status === 'ready') return <LiveApp householdId={state.household.id} currency={state.household.currency} email={email} isAdmin={householdRole(state.household, email) === 'admin'} frame={frame} />;
   if (state.status === 'loading') return <Note frame={frame}>{t('household.finding')}</Note>;
   if (state.status === 'error') return <Note frame={frame}>{t('household.unreachable')}</Note>;
   return (
@@ -79,9 +80,11 @@ function SignedIn({ user, frame }: { user: User; frame: FrameProps }) {
   );
 }
 
-function LiveApp({ householdId, currency, email, frame }: { householdId: string; currency?: string; email: string; frame: FrameProps }) {
+function LiveApp({ householdId, currency, email, isAdmin, frame }: { householdId: string; currency?: string; email: string; isAdmin: boolean; frame: FrameProps }) {
   const toasts = useToast();
-  const store = useLiveStore(householdId, email, DEFAULT_SPEND_SETTINGS, toasts.fail, currency);
+  const code = useMemo(() => chooserCode(auth, googleClientId), []);
+  const inboxes = useAlertInboxes({ householdId, caller: () => auth.currentUser, isAdmin, code });
+  const store = useLiveStore(householdId, email, DEFAULT_SPEND_SETTINGS, toasts.fail, inboxes, currency);
   return (
     <ClockProvider read={Date.now}>
       <SpendingApp store={store} frame={frame} toasts={toasts} />

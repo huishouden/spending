@@ -91,8 +91,14 @@ export function SpendingApp({ store, frame, toasts, banner }: Props) {
     notify(s.added ? t('toast.addedFromEmail', { n: s.added }) : t('toast.noneInEmail'));
   }, [email.state, notify, t]);
   const checkEmail = () => {
-    asked.current = true;
     setAdding(false);
+    const inboxes = store.inboxes.status?.inboxes;
+    // With alert inboxes and none connected yet: connect one first (Settings > Email).
+    if (store.inboxes.available && inboxes && store.inboxes.status?.available && inboxes.length === 0) {
+      setSettings('email');
+      return;
+    }
+    asked.current = true;
     void email.check(true);
   };
 
@@ -113,7 +119,7 @@ export function SpendingApp({ store, frame, toasts, banner }: Props) {
         <p className="p-2 text-lg text-muted">{t('app.loading')}</p>
       ) : (
         <>
-          <Glance summary={summary} months={shownMonths} onMonth={goMonth} currency={currency} store={store} now={now} email={email} onAdd={() => setAdding(true)} onRetry={checkEmail} />
+          <Glance summary={summary} months={shownMonths} onMonth={goMonth} currency={currency} store={store} now={now} email={email} onAdd={() => setAdding(true)} onRetry={checkEmail} onInboxes={() => setSettings('email')} />
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2">
             <WhereItWent summary={summary} currency={currency} selected={shownCategory?.name ?? null} onSelect={(c) => setCategory(c && c.name !== shownCategory?.name ? c : null)} />
             <Purchases summary={summary} category={shownCategory ?? null} currency={currency} today={today} onOpen={setOpen} onAll={() => setCategory(null)} />
@@ -129,6 +135,7 @@ export function SpendingApp({ store, frame, toasts, banner }: Props) {
           onCheckEmail={checkEmail}
           onImport={() => (setAdding(false), setImporting(true))}
           onCards={() => (setAdding(false), setSettings('cards'))}
+          onInboxes={() => (setAdding(false), setSettings('email'))}
           onClose={() => setAdding(false)}
         />
       )}

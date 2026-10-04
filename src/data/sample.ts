@@ -1,8 +1,23 @@
 import { useMemo, useRef, useState } from 'react';
+import type { Auth } from 'firebase/auth';
 import type { Mailbox, MailMessage } from '../lib/mail';
-import { gmailMailbox } from '@huishouden/pwa-kit/gmail';
+import { gmailError, gmailMailbox, GmailError } from '@huishouden/pwa-kit/gmail';
+import { checkAlerts, NothingToSearch } from '@huishouden/pwa-kit/spending-core';
+import type { MailStatus } from '../services/mailApi';
+import { chooserCode, useAlertInboxes } from './useAlertInboxes';
+import { t } from '../i18n';
 import { cardDoc, DEFAULT_SPEND_SETTINGS, ruleDoc, type SpendSettings } from './model';
-import { applyWrites, DEFAULT_RULE_DOCS, derive, emptyDocs, makeActions, type Docs, type SpendingStore } from './store';
+import { applyWrites, DEFAULT_RULE_DOCS, derive, emptyDocs, makeActions, type AlertInboxes, type Docs, type SpendingStore } from './store';
+
+declare global {
+  interface Window {
+    /**
+     * Browser tests: the sample talks to a stubbed calendar Worker at this address (page.route) for
+     * its alert inboxes, as a signed-in member would, and Google's code client is stubbed too.
+     */
+    __mailTestUrl?: string;
+  }
+}
 
 /**
  * The signed-out app: an invented household with its own cards, rules and transactions, kept in
@@ -104,6 +119,22 @@ export function sampleMailbox(now = Date.now()): Mailbox {
   };
 }
 
+const MIN = 60_000;
+const SAMPLE_INBOX = 'card-alerts@example.com';
+
+/** The sample's inbox: connected a month ago, checked three minutes ago, the last purchase found two hours ago. */
+export function sampleInboxStatus(now: number): MailStatus {
+  return {
+    available: true,
+    inboxes: [{ id: 'ib-sample', address: SAMPLE_INBOX, by: SAMPLE_ME, mine: true, connectedAt: now - 30 * 1440 * MIN, lastChecked: now - 3 * MIN, lastAlertAt: now - 120 * MIN, lastAdded: 1, error: null, checking: false }],
+    lastChecked: now - 3 * MIN,
+  };
+}
+
+/** A stand-in signed-in member for browser tests against a stubbed Worker. */
+const testCaller = { getIdToken: async () => 'test-id-token', refreshToken: 'test-refresh-token-for-the-sample' };
+const testAuth = { currentUser: { email: SAMPLE_ME } } as unknown as Auth;
+
 /** The sample household's store. Browser tests can point it at a stubbed Gmail with window.__gmailTestToken. */
 export function useSampleStore(read: () => number = Date.now): SpendingStore {
   const [docs, setDocs] = useState<Docs>(() => sampleDocs(read()));
@@ -140,8 +171,63 @@ export function useSampleStore(read: () => number = Date.now): SpendingStore {
     };
   }, []);
   const derived = useMemo(() => derive(docs, settings), [docs, settings]);
+
+  // Alert inboxes: in memory (one connected, Check now reads the sample mailbox), or a stubbed Worker in browser tests.
+  const testBase = typeof window !== 'undefined' ? (window.__mailTestUrl ?? '') : '';
+  const testCode = useMemo(() => chooserCode(testAuth, 'test-client.apps.googleusercontent.com'), []);
+  const remote = useAlertInboxes({ householdId: testBase ? 'sample' : null, caller: () => (testBase ? testCaller : null), isAdmin: true, code: testCode, base: testBase });
+  const [inboxStatus, setInboxStatus] = useState<MailStatus>(() => sampleInboxStatus(read()));
+  const [inboxError, setInboxError] = useState<string | null>(null);
+  const [inboxBusy, setInboxBusy] = useState<AlertInboxes['busy']>(null);
+  const local = useMemo<AlertInboxes>(() => {
+    const update = (patch: (s: MailStatus) => MailStatus) => setInboxStatus((s) => patch(s));
+    return {
+      available: true,
+      status: inboxStatus,
+      error: inboxError,
+      busy: inboxBusy,
+      isAdmin: true,
+      refresh: async () => inboxStatus,
+      connect: async () => {
+        // No Google window in the sample: a second inbox appears, as a partner's card alerts would.
+        update((s) => ({ ...s, inboxes: [...s.inboxes.filter((i) => i.id !== 'ib-partner'), { id: 'ib-partner', address: 'partner-alerts@example.com', by: SAMPLE_ME, mine: true, connectedAt: read(), lastChecked: read(), lastAlertAt: null, lastAdded: null, error: null, checking: false }], lastChecked: read() }));
+      },
+      checkNow: async () => {
+        setInboxBusy('check');
+        setInboxError(null);
+        try {
+          const d = derive(docsRef.current, settings);
+          const result = await checkAlerts(mail.stored(), { cards: d.cards, labels: d.settings.alertLabels, rules: d.rules, existing: d.records, seen: seen.current });
+          await actions.addAlerts(result.create);
+          mail.markSeen(result.read);
+          const now = read();
+          const next: MailStatus = {
+            ...inboxStatus,
+            inboxes: inboxStatus.inboxes.map((i) => ({ ...i, error: null, lastChecked: now, ...(result.create.length ? { lastAlertAt: now, lastAdded: result.create.length } : {}) })),
+            lastChecked: now,
+          };
+          setInboxStatus(next);
+          return next;
+        } catch (e) {
+          // Gmail refusing the sample's test token is what a revoked inbox looks like.
+          if (e instanceof GmailError && e.status === 401) {
+            update((s) => ({ ...s, inboxes: s.inboxes.map((i) => ({ ...i, error: 'revoked' })) }));
+          }
+          const message = e instanceof NothingToSearch ? t('email.nothingToSearch') : gmailError(e);
+          setInboxError(message);
+          throw new Error(message);
+        } finally {
+          setInboxBusy(null);
+        }
+      },
+      disconnect: async (id) => update((s) => ({ ...s, inboxes: s.inboxes.filter((i) => i.id !== id) })),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inboxStatus, inboxError, inboxBusy]);
+  const inboxes = testBase ? remote : local;
+
   // The sample household's dollars, until someone picks another currency in its settings.
   const [currency, setCurrency] = useState('USD');
   const saveCurrency = useMemo(() => async (code: string) => setCurrency(code), []);
-  return { live: false, ready: true, me: SAMPLE_ME, ...derived, actions, mail, currency, saveCurrency };
+  return { live: false, ready: true, me: SAMPLE_ME, ...derived, actions, mail, inboxes, currency, saveCurrency };
 }

@@ -34,12 +34,23 @@ household's data in Firestore under `households/{id}/`:
 | Category rules: "the shop's name contains X → category Y" | Settings > Categories; starts with a default set; "Always put <shop> in <category>" on any purchase | `spendingRules` |
 | Budget (none: compared with last month), currency, words never counted (rent, card payments), Gmail labels | Settings > Budget, Settings > Email | `spendingSettings/main` |
 | Statement files | Add spending > Import a statement: any bank's or card's CSV; columns and sign found from the file, remembered per card | `spendingTransactions` (`source: statement`) |
-| Card purchase alert emails | Add spending > Check email: reads the member's own Gmail (read-only, asked for once in a popup; Google warns the app is unverified the first time), searching each card's alert words and the household's labels. Runs again on open while access is fresh (an hour); never opens a popup by itself | `spendingTransactions` (`source: alert`) |
+| Alert inboxes: the Gmail accounts card alerts arrive at (any account, not only the one signed in) | Settings > Email > Connect alert inbox: Google's account chooser, read-only Gmail. Any admin or member; several allowed | `spendingInboxes` (address, who connected it, last result); the access itself only in the calendar Worker, sealed |
+| Card purchase alert emails | Checked every 5 minutes by the calendar Worker, with no app open, as the member who connected each inbox: each card's alert words and the household's labels, parsed by the kit's `spending-core` exactly as the app would. Add spending > Check email and Settings > Email > Check now check at once; the Overview says when they last ran ("Updated 3 minutes ago from email") | `spendingTransactions` (`source: alert`) |
 
 Every import is categorised by the household's rules and de-duplicated against what is there: the
 same card and amount within 3 days with a similar description is the same purchase (the Apps
 Script's rule, plus the description check). A statement row replaces the email alert for the same
 purchase, since the statement has the real date and the bank's name for the shop.
+
+**Alert inboxes** (huishouden/calendar's README, "Spending's alert inboxes", has the design). Each
+inbox shows who connected it, when it was last checked, when it last found purchases, and what
+stopped it: Google access removed (Reconnect), nothing to search for (add alert words), Gmail not
+answering. Disconnect (whoever connected it, or an admin) removes Google's access and everything
+kept for it; the purchases it found stay. Gmail access is a restricted Google permission: until
+Google has reviewed the app, its window warns that the app is unverified, and at most 100 Google
+accounts can connect. The Worker only searches the household's alert words and labels, and keeps
+only what Spending writes for each purchase. A build without the Worker (`VITE_CALENDAR_URL` unset)
+reads the signed-in member's own Gmail in the browser instead, as before.
 
 Signed out, the app shows an invented sample household with the same screens, kept in memory and on
 its own clock (27 September 2026), so every screenshot shows the same month. Signed in to an account
@@ -57,8 +68,9 @@ everything members add. To switch:
    Alert source as the bank and Alert keywords as alert words), category rules and labels.
 2. Settings > Cards: add each card's alert sender address to its alert words (the script searched
    fixed senders; the app searches only what the household lists).
-3. Check email once and compare with the script's rows; alerts the script already wrote are
-   recognised and skipped.
+3. Settings > Email > Connect alert inbox, choosing the Gmail account the alerts arrive at. The
+   first check reads alerts from two days before the household's newest transaction; alerts the
+   script already wrote are recognised and skipped.
 4. Stop the script: in the Sheet, Extensions > Apps Script > Triggers, delete the
    `syncCardTransactionsFromGmail` trigger. Its documents stay; nothing is deleted.
 
@@ -71,7 +83,7 @@ Household data lives in the household's own Firestore documents, visible only to
 To catch problems early, the app sends reports to New Relic (free tier) through
 `@huishouden/pwa-kit/observability`: errors (emails, ids, query strings and long numbers removed),
 Core Web Vitals and page loads, the app version, device type, and the country and region New Relic
-derives from the request; and anonymous usage counts per visit: `check email` (and whether it was tapped or ran on open), `add spending`, `import statement`, and which view or settings tab is open. Households are counted by a
+derives from the request; and anonymous usage counts per visit: `check email` (and whether it was tapped or ran on open), `connect alert inbox`, `add spending`, `import statement`, and which view or settings tab is open. Households are counted by a
 hash of the id. No names, emails, entries, free text or precise location, and no cookie or stored
 id: nothing links one visit to the next. When the browser sends Global Privacy Control or Do Not
 Track, usage counts are skipped; errors and speed still go. Local builds, staging and automated
@@ -86,7 +98,8 @@ bun install          # also enables the pre-commit leak scan
 bun run dev          # http://localhost:3000
 bun run lint && bun run test && bun run build
 bun run e2e          # Playwright against the live site (BASE_URL to override): smoke tests and the
-                     # sample household's flows, with Gmail answered by page.route
+                     # sample household's flows, with Gmail, Google's code client and the calendar
+                     # Worker's alert inbox calls answered by page.route (e2e/inbox.spec.ts)
 bun run script:push  # legacy: deploy apps-script/ to a Sheet (tests first); see apps-script/README.md
 ```
 

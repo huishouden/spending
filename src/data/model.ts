@@ -1,5 +1,7 @@
 import type { CsvMapping } from '../lib/csvImport';
-import type { Source } from '../lib/matching';
+import { transactionDoc, TRANSACTION_FIELDS, type NewTransaction } from '@huishouden/pwa-kit/spending-core';
+
+export { transactionDoc, TRANSACTION_FIELDS, type NewTransaction };
 
 /**
  * The household's spending data in Firestore, under households/{householdId}/:
@@ -51,7 +53,6 @@ export interface SpendSettings {
   emailCheckedBy?: string;
 }
 
-export const TRANSACTION_FIELDS = ['date', 'description', 'amount', 'category', 'card', 'type', 'source', 'last4', 'emailId', 'createdAt', 'updatedAt', 'by'] as const;
 export const SETTINGS_FIELDS = ['monthlyBudget', 'currencySymbol', 'ignoredKeywords', 'alertLabels', 'emailCheckedAt', 'emailCheckedBy', 'updatedAt', 'updatedBy'] as const;
 export const CARD_FIELDS = ['name', 'last4', 'issuer', 'alertWords', 'csv', 'createdAt', 'updatedAt', 'by'] as const;
 export const CSV_FIELDS = ['date', 'description', 'amount', 'debit', 'credit', 'category', 'type', 'card', 'purchases', 'dayFirst'] as const;
@@ -110,35 +111,6 @@ export function toSettings(d: Record<string, unknown> | undefined): SpendSetting
     alertLabels: strList(d.alertLabels),
     ...(typeof d.emailCheckedAt === 'number' ? { emailCheckedAt: d.emailCheckedAt } : {}),
     ...(d.emailCheckedBy ? { emailCheckedBy: str(d.emailCheckedBy) } : {}),
-  };
-}
-
-export interface NewTransaction {
-  date: string;
-  description: string;
-  amount: number;
-  category: string;
-  card: string;
-  type: string;
-  last4?: string;
-  emailId?: string;
-}
-
-/** A transaction document as a member writes it: only the allowed fields, no empty optional ones. */
-export function transactionDoc(tx: NewTransaction, source: Source, by: string, createdAt: number, updatedAt?: number) {
-  return {
-    date: tx.date,
-    description: tx.description.slice(0, 200),
-    amount: Math.round(tx.amount * 100) / 100,
-    category: tx.category.slice(0, 60),
-    card: tx.card.slice(0, 60),
-    type: (tx.type || (tx.amount < 0 ? 'Return' : 'Sale')).slice(0, 20),
-    source,
-    ...(tx.last4 && /^\d{4}$/.test(tx.last4) ? { last4: tx.last4 } : {}),
-    ...(tx.emailId ? { emailId: tx.emailId.slice(0, 64) } : {}),
-    createdAt,
-    ...(updatedAt !== undefined ? { updatedAt } : {}),
-    by,
   };
 }
 
