@@ -227,7 +227,6 @@
   "inbox.privacy": "Gastos pide a Google acceso de solo lectura al buzón que elijas. Solo busca las palabras de alerta de tus tarjetas y estas etiquetas, y guarda únicamente lo que anota de cada compra: fecha, comercio, importe, categoría y tarjeta. Desconectar quita el acceso en Google y borra lo que se guardó para él.",
   "inbox.unverified": "El acceso a Gmail es un permiso restringido. Hasta que Google revise la app, Google muestra un aviso de que no está verificada, y como máximo 100 cuentas de Google pueden conectarse.",
   "inbox.unavailable": "Los buzones de alertas no están configurados en este servidor.",
-  "inbox.err.popupBlocked": "El navegador bloqueó la ventana de Google. Permite las ventanas emergentes para este sitio e inténtalo de nuevo.",
   "inbox.err.denied": "Google no permitió leer ese buzón. En la ventana de Google, marca la casilla para ver tus mensajes de correo.",
   "inbox.err.notAllowed": "Solo los administradores y miembros pueden gestionar los buzones de alertas, y solo un administrador o quien conectó un buzón puede desconectarlo.",
   "inbox.err.quota": "Se agotó el límite diario del hogar. Inténtalo mañana.",

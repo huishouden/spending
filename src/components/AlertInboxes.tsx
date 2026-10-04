@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Mail, RefreshCw } from 'lucide-react';
 import { agoWords } from '@huishouden/pwa-kit/time';
 import { useClock } from '@huishouden/pwa-kit/react/clock';
-import { ghostButton, overline, primaryButton, secondaryButton } from '@huishouden/pwa-kit/react/ui';
+import { GoogleWindowWait, ghostButton, overline, primaryButton, secondaryButton } from '@huishouden/pwa-kit/react/ui';
 import type { AlertInboxes as Inboxes, SpendingStore } from '../data/store';
 import type { InboxStatus } from '../services/mailApi';
 import { useT } from '../i18n';
@@ -58,6 +58,7 @@ export function AlertInboxSection({ store }: { store: SpendingStore }) {
               </button>
             )}
           </div>
+          <GoogleWindowWait waiting={inboxes.awaitingGoogle} onShow={inboxes.showGoogle} />
           {inboxes.error && (
             <p role="alert" className="rounded-xl bg-error-tint px-3 py-2 text-error">
               {inboxes.error}

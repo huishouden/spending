@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Auth } from 'firebase/auth';
 import { googleAuthCode } from '@huishouden/pwa-kit/google-token';
 import { GMAIL_READONLY_SCOPE } from '@huishouden/pwa-kit/gmail';
-import { popupBlocked, popupCancelled } from '@huishouden/pwa-kit/feedback';
+import { googleWindowMessage } from '@huishouden/pwa-kit/feedback';
 import { track } from '@huishouden/pwa-kit/observability';
 import { mailApi, MailCallError, MAIL_URL, type Caller, type MailStatus, type ReviewAnswer } from '../services/mailApi';
 import { t } from '../i18n';
@@ -17,9 +17,12 @@ const FOLLOW_MAX = 20;
 
 /** A failed call in words. */
 export function inboxError(e: unknown): string | null {
-  if (popupCancelled(e)) return null;
-  if (popupBlocked(e)) return t('inbox.err.popupBlocked');
   const code = e instanceof MailCallError ? e.code : (e as { code?: string })?.code;
+  // Google's window: blocked, closed before finishing, or stopped. Never silent.
+  if (!(e instanceof MailCallError) && code !== 'access_denied') {
+    const google = googleWindowMessage(e, 'Gmail');
+    if (google) return google;
+  }
   switch (code) {
     case 'access_denied':
     case 'google-denied':
@@ -57,6 +60,7 @@ export function useAlertInboxes({ householdId, caller, isAdmin, code, base = MAI
   const [status, setStatus] = useState<MailStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<AlertInboxes['busy']>(null);
+  const [awaitingGoogle, setAwaitingGoogle] = useState(false);
   const askedAt = useRef(0);
   const api = useMemo(() => mailApi(base), [base]);
   const deps = useRef({ caller, code });
@@ -143,10 +147,15 @@ export function useAlertInboxes({ householdId, caller, isAdmin, code, base = MAI
       connect: async () => {
         track('connect alert inbox');
         await act('connect', async () => {
-          const one = await deps.current.code();
+          // Straight from the tap: anything awaited before Google's window opens gets it blocked.
+          setAwaitingGoogle(true);
+          const one = await deps.current.code().finally(() => setAwaitingGoogle(false));
           return run((c, h) => api.connect(c, h, one));
         });
       },
+      awaitingGoogle,
+      // Asking again while Google's window is open brings that window to the front (the kit reuses it).
+      showGoogle: () => void deps.current.code().catch(() => undefined),
       checkNow: () => act('check', () => run((c, h) => api.check(c, h)), true),
       disconnect: async (id: string) => {
         await act('disconnect', () => run((c, h) => api.disconnect(c, h, id)));
@@ -176,6 +185,6 @@ export function useAlertInboxes({ householdId, caller, isAdmin, code, base = MAI
         await act('undo', () => run((c, h) => api.undo(c, h, inbox, importId)));
       },
     }),
-    [base, status, error, busy, isAdmin, refresh, act, run, api, householdId],
+    [base, status, error, busy, awaitingGoogle, isAdmin, refresh, act, run, api, householdId],
   );
 }

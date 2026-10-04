@@ -227,7 +227,6 @@
   "inbox.privacy": "Uitgaven vraagt Google om alleen-lezen toegang tot de inbox die je kiest. Het zoekt alleen naar de meldingswoorden van je kaarten en deze labels, en bewaart alleen wat het per aankoop noteert: datum, winkel, bedrag, categorie en kaart. Ontkoppelen trekt de toegang bij Google in en verwijdert wat ervoor bewaard werd.",
   "inbox.unverified": "Toegang tot Gmail is een beperkte machtiging. Tot Google de app heeft beoordeeld, toont Google een waarschuwing dat de app niet geverifieerd is, en kunnen hooguit 100 Google-accounts koppelen.",
   "inbox.unavailable": "Inboxen voor meldingen zijn op deze server niet ingesteld.",
-  "inbox.err.popupBlocked": "De browser blokkeerde het venster van Google. Sta pop-ups toe voor deze site en probeer het opnieuw.",
   "inbox.err.denied": "Google gaf geen toegang tot die inbox. Vink in het venster van Google het vakje aan om je e-mails te bekijken.",
   "inbox.err.notAllowed": "Alleen beheerders en leden kunnen inboxen voor meldingen beheren, en alleen een beheerder of wie een inbox koppelde kan hem ontkoppelen.",
   "inbox.err.quota": "De daglimiet van het huishouden is op. Probeer het morgen opnieuw.",
