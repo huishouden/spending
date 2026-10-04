@@ -31,7 +31,7 @@
   },
   "devDependencies": {
     "@google/clasp": "^3.4.1",
-    "@huishouden/pwa-kit": "github:huishouden/pwa-kit#v0.79.0",
+    "@huishouden/pwa-kit": "github:huishouden/pwa-kit#v0.81.0",
     "@playwright/test": "^1.63.0",
     "@types/bun": "^1.4.2",
     "@types/node": "^22.14.0",
