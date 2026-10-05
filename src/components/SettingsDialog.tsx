@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pencil, Plus, Trash2, X } from 'lucide-react';
 import { Chip, Dialog, ghostButton, iconButton, inputClass, overline, primaryButton, secondaryButton, selectClass } from '@huishouden/pwa-kit/react/ui';
 import { readError } from '@huishouden/pwa-kit/feedback';
@@ -61,8 +61,8 @@ export function SettingsDialog({ store, tab, onTab, notify, onClose }: Props) {
         ))}
       </div>
       {!store.live && <p className="mb-4 rounded-xl bg-sunken px-4 py-3 text-sm text-muted">{t('settings.sample')}</p>}
-      {/* Each tab copies the settings into its form when it opens: before they arrive it would show
-          the defaults, and saving would overwrite the household's own. */}
+      {/* Before the settings arrive the tabs would show the defaults, and a save could overwrite the
+          household's own. The Budget tab then follows them until a field is edited. */}
       {!store.ready ? (
         <p role="status" className="py-6 text-base text-muted">
           {t('settings.loading')}
@@ -123,19 +123,36 @@ function WordList({ words, onChange, placeholder, label, lower = true }: { words
 
 function BudgetTab({ store, notify }: { store: SpendingStore; notify: (m: string) => void }) {
   const t = useT();
-  const [budget, setBudget] = useState(budgetInput(store.settings.monthlyBudget));
-  const [currency, setCurrency] = useState(store.currency);
+  // Each field shows the household's value, kept up to date as it changes (another member's save,
+  // or the settings arriving after the form opened), until the person edits it; a save writes only
+  // the fields they edited, so it never puts back a value someone else changed meanwhile.
+  const [budgetEdit, setBudget] = useState<string | null>(null);
+  const [currencyEdit, setCurrency] = useState<string | null>(null);
+  const [wordsEdit, setWords] = useState<string[] | null>(null);
+  const budget = budgetEdit ?? budgetInput(store.settings.monthlyBudget);
+  const currency = currencyEdit ?? store.currency;
+  const words = wordsEdit ?? store.settings.ignoredKeywords;
+  // An edit the household's value now matches (saved, here or by someone else) is an edit no longer.
+  const savedBudget = budgetInput(store.settings.monthlyBudget);
+  const savedWords = store.settings.ignoredKeywords.join('\n');
+  useEffect(() => {
+    if (budgetEdit !== null && budgetEdit === savedBudget) setBudget(null);
+    if (currencyEdit !== null && currencyEdit === store.currency) setCurrency(null);
+    if (wordsEdit !== null && wordsEdit.join('\n') === savedWords) setWords(null);
+  }, [budgetEdit, currencyEdit, wordsEdit, savedBudget, savedWords, store.currency]);
   // Typed the reader's way: "1.500" and "1500,50" in Dutch, "1,500" and "1500.50" in English.
   const budgetCents = parseCents(budget, { max: 10_000_000_000 });
-  const [words, setWords] = useState(store.settings.ignoredKeywords);
   const [status, setStatus] = useState<{ kind: 'idle' | 'saving' | 'saved' } | { kind: 'error'; message: string }>({ kind: 'idle' });
   const save = async () => {
     setStatus({ kind: 'saving' });
     try {
       if (budgetCents === null) return;
-      await store.actions.saveSettings({ monthlyBudget: (budgetCents ?? 0) / 100, ignoredKeywords: words });
+      await store.actions.saveSettings({
+        ...(budgetEdit !== null && { monthlyBudget: (budgetCents ?? 0) / 100 }),
+        ...(wordsEdit !== null && { ignoredKeywords: wordsEdit }),
+      });
       // The currency is the household's, for every app.
-      if (currency !== store.currency) await store.saveCurrency(currency);
+      if (currencyEdit !== null && currencyEdit !== store.currency) await store.saveCurrency(currencyEdit);
       setStatus({ kind: 'saved' });
       notify(t('settings.budgetSaved'));
     } catch (e) {
