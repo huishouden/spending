@@ -53,7 +53,9 @@ date, card by hand). Undo last import (whoever connected it, or an admin) remove
 import added, and they are not added again. Disconnect (whoever connected it, or an admin) removes
 Google's access and everything kept for it; the purchases it found stay. Gmail access is a restricted Google permission: until
 Google has reviewed the app, its window warns that the app is unverified, and at most 100 Google
-accounts can connect. The Worker only searches the household's alert words and labels, and keeps
+accounts can connect. If the browser blocks Google's window, or it cannot be seen, Settings > Email
+offers **Continue in this tab**: Google's account chooser opens in this tab and Spending connects the
+inbox when it returns. The Worker only searches the household's alert words and labels, and keeps
 only what Spending writes for each purchase. A build without the Worker (`VITE_CALENDAR_URL` unset)
 reads the signed-in member's own Gmail in the browser instead, as before.
 
@@ -88,7 +90,7 @@ Household data lives in the household's own Firestore documents, visible only to
 To catch problems early, the app sends reports to New Relic (free tier) through
 `@huishouden/pwa-kit/observability`: errors (emails, ids, query strings and long numbers removed),
 Core Web Vitals and page loads, the app version, device type, and the country and region New Relic
-derives from the request; and anonymous usage counts per visit: `check email` (and whether it was tapped or ran on open), `connect alert inbox`, `add spending`, `import statement`, and which view or settings tab is open. Households are counted by a
+derives from the request; and anonymous usage counts per visit: `check email` (and whether it was tapped or ran on open), `connect alert inbox` (and `connect alert inbox in this tab`), `add spending`, `import statement`, and which view or settings tab is open. Households are counted by a
 hash of the id. No names, emails, entries, free text or precise location, and no cookie or stored
 id: nothing links one visit to the next. When the browser sends Global Privacy Control or Do Not
 Track, usage counts are skipped; errors and speed still go. Local builds, staging and automated
