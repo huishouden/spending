@@ -115,7 +115,8 @@ export function SpendingApp({ store, frame, toasts, banner }: Props) {
   };
 
   return (
-    <Frame {...frame} onSettings={() => setSettings('budget')}>
+    // Not while loading: the settings dialog takes its fields from the household's settings once, on opening.
+    <Frame {...frame} onSettings={store.ready ? () => setSettings('budget') : undefined}>
       {banner}
       {!store.ready ? (
         <p className="p-2 text-lg text-muted">{t('app.loading')}</p>
