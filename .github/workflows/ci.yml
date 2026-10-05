@@ -27,3 +27,7 @@ jobs:
     with:
       base: /spending/
       staging-ref: ${{ inputs.staging-ref }}
+    # The asset CDN's upload (pwa-kit docs/one-site.md "Asset CDN"); only these two secrets.
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
