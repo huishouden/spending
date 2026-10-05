@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.9.1](https://github.com/huishouden/spending/compare/v2.9.0...v2.9.1) (2026-10-05)
+
+### Performance
+
+* opening Spending reads only recent transactions (from last month's first day, or 40 days back): about 380 Firestore reads instead of about 1,540 for a year of history. A month picked further back is read when picked, with "Loading this month's purchases" until then; an imported statement first reads its own days, so its duplicates are still found. The month picker lists every month back to the oldest purchase. A failed read says so, with Try again (pwa-kit 0.103.0)
+
 ## [2.9.0](https://github.com/huishouden/spending/compare/v2.8.5...v2.9.0) (2026-10-05)
 
 ### Features
