@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.8.3](https://github.com/huishouden/spending/compare/v2.8.2...v2.8.3) (2026-10-05)
+
+### Tests
+
+* the README screenshots open Spending settings with the kit's openAppSettings ([#44](https://github.com/huishouden/spending/issues/44))
+
 ## [2.8.2](https://github.com/huishouden/spending/compare/v2.8.1...v2.8.2) (2026-10-05)
 
 ### Other
