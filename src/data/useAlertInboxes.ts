@@ -81,13 +81,19 @@ export function useAlertInboxes({ householdId, caller, isAdmin, code, redirect, 
   const deps = useRef({ caller, code, redirect, returned });
   deps.current = { caller, code, redirect, returned };
   const tookReturn = useRef(false);
+  const version = useRef(0);
 
   const run = useCallback(
-    async (what: (c: Caller, household: string) => Promise<MailStatus>): Promise<MailStatus | null> => {
+    async (what: (c: Caller, household: string) => Promise<MailStatus>, readOnly = false): Promise<MailStatus | null> => {
       const c = deps.current.caller();
       if (!c || !householdId) return null;
+      const asked = version.current;
       const s = await what(c, householdId);
       askedAt.current = Date.now();
+      // A status asked for before an action answered (back from Google's page, the connect can
+      // finish first) must not undo that action's.
+      if (readOnly && version.current !== asked) return s;
+      if (!readOnly) version.current++;
       setStatus(s);
       return s;
     },
@@ -96,7 +102,7 @@ export function useAlertInboxes({ householdId, caller, isAdmin, code, redirect, 
 
   const refresh = useCallback(async () => {
     try {
-      const s = await run((c, h) => api.status(c, h));
+      const s = await run((c, h) => api.status(c, h), true);
       setError(null);
       return s;
     } catch (e) {

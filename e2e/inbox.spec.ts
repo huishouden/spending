@@ -196,10 +196,21 @@ test.describe('with the calendar Worker (stubbed)', () => {
     await page.goto('./');
     let section = await openEmail(page);
     await section.getByRole('button', { name: 'Connect alert inbox' }).click();
+    // Back on Spending, its first status (from before the connect: no inbox) answers only after the
+    // connect: it must not undo it.
+    let stale = true;
+    await page.route(`${WORKER}/api/mail/status**`, async (route) => {
+      if (!stale || route.request().method() !== 'GET') return route.fallback();
+      stale = false;
+      await new Promise((r) => setTimeout(r, 1500));
+      await route.fulfill({ json: { available: true, inboxes: [], lastChecked: null }, headers: { 'Access-Control-Allow-Origin': '*' } });
+    });
     await section.getByRole('button', { name: 'Continue in this tab' }).click();
     // Back on Spending: Settings > Email opens by itself and the inbox connects.
     section = page.getByRole('dialog', { name: 'Settings' }).getByRole('region', { name: 'Alert inbox' });
     await expect(section.getByRole('list', { name: 'Connected inboxes' }).getByRole('listitem', { name: 'alerts.example@example.com' })).toBeVisible({ timeout: 15_000 });
+    await page.waitForTimeout(2000);
+    await expect(section.getByRole('list', { name: 'Connected inboxes' }).getByRole('listitem', { name: 'alerts.example@example.com' })).toBeVisible();
     const connect = worker.calls.find((c) => c.path === '/api/mail/connect')!;
     expect(connect.body).toMatchObject({ household: 'sample', code: '4/0-redirect-code', redirectUri: `${new URL(page.url()).origin}/spending/` });
     expect(new URL(page.url()).searchParams.has('code')).toBe(false);
