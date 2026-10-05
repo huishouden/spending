@@ -2,7 +2,7 @@
   "name": "huishouden-spending",
   "private": true,
   "license": "PolyForm-Shield-1.0.0",
-  "version": "2.9.0",
+  "version": "2.9.1",
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
@@ -32,7 +32,7 @@
   },
   "devDependencies": {
     "@google/clasp": "^3.4.1",
-    "@huishouden/pwa-kit": "github:huishouden/pwa-kit#v0.102.0",
+    "@huishouden/pwa-kit": "github:huishouden/pwa-kit#v0.103.0",
     "@playwright/test": "^1.63.0",
     "@types/bun": "^1.4.2",
     "@types/node": "^22.14.0",

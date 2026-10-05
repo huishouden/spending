@@ -2,6 +2,7 @@ import { DEFAULT_RULES } from '../lib/categorise';
 import type { CsvMapping, StatementRow } from '../lib/csvImport';
 import type { Mailbox } from '../lib/mail';
 import type { MailStatus, ReviewAnswer, ReviewItem } from '../services/mailApi';
+import type { DateRange } from '../lib/window';
 import { planImport, statementIds, type AlertTx, type Plan } from '@huishouden/pwa-kit/spending-core';
 import type { SheetSettings } from '../lib/sheetSettings';
 import {
@@ -118,6 +119,8 @@ export interface AlertInboxes {
   undo(inbox: string, importId: string): Promise<void>;
 }
 
+export type RangeState = 'ready' | 'loading' | 'failed';
+
 export interface SpendingStore {
   live: boolean;
   /** False until the first answer from the store. */
@@ -136,6 +139,18 @@ export interface SpendingStore {
   currency: string;
   /** Sets the household's currency, for every app (households/{id}.currency). */
   saveCurrency(code: string): Promise<void>;
+  /**
+   * Whether `records` has every transaction dated in `range` (the live store follows only recent
+   * ones, src/lib/window.ts): 'loading' until read, 'failed' when reading failed (`need` again
+   * retries). Call `need` first; the sample has everything.
+   */
+  rangeState(range: DateRange): RangeState;
+  /** Follows the transactions dated in `range` too, for the rest of the visit. */
+  need(range: DateRange): void;
+  /** Reads a range that failed again (a person's Try again). */
+  retry(range: DateRange): void;
+  /** The month of the household's oldest transaction, when the store knows it without reading them all. */
+  oldestMonth?: string;
 }
 
 export interface Derived {

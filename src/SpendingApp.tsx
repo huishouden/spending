@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AppBar, type AppBarUser } from '@huishouden/pwa-kit/react/app-bar';
 import { useClock } from '@huishouden/pwa-kit/react/clock';
-import { Toast, type useToast } from '@huishouden/pwa-kit/react/ui';
+import { secondaryButton, Toast, type useToast } from '@huishouden/pwa-kit/react/ui';
 import { toYmd } from '@huishouden/pwa-kit/time';
 import { track, trackView } from '@huishouden/pwa-kit/observability';
 import type { SpendingStore } from './data/store';
 import type { SpendingRecord } from './data/model';
 import { useEmailCheck } from './data/useEmailCheck';
 import { counted, monthOf, months, summarise, type CategoryTotal, type MonthKey } from './lib/month';
+import { monthRange, monthsSince } from './lib/window';
 import { PORTAL_URL } from './config/portal';
 import { Glance } from './components/Glance';
 import { WhereItWent } from './components/WhereItWent';
@@ -77,8 +78,13 @@ export function SpendingApp({ store, frame, toasts, banner }: Props) {
   }, [importing]);
 
   const purchases = useMemo(() => counted(store.records, store.settings.ignoredKeywords), [store.records, store.settings.ignoredKeywords]);
-  const shownMonths = useMemo(() => months(purchases, today), [purchases, today]);
+  // Every month back to the household's oldest purchase, though only recent ones are read until picked.
+  const shownMonths = useMemo(() => [...new Set([...months(purchases, today), ...monthsSince(store.oldestMonth, today)])].sort((a, b) => b.localeCompare(a)), [purchases, today, store.oldestMonth]);
   const key = month ?? monthOf(today);
+  const { need } = store;
+  useEffect(() => need(monthRange(key)), [need, key]);
+  const monthState = store.rangeState(monthRange(key));
+  const monthLoading = monthState !== 'ready';
   const summary = useMemo(() => summarise(purchases, key, today, store.settings.monthlyBudget), [purchases, key, today, store.settings.monthlyBudget]);
   const currency = store.currency;
   // The open category follows the data (a purchase moved out of it, a month changed).
@@ -122,11 +128,24 @@ export function SpendingApp({ store, frame, toasts, banner }: Props) {
         <p className="p-2 text-lg text-muted">{t('app.loading')}</p>
       ) : (
         <>
-          <Glance summary={summary} months={shownMonths} onMonth={goMonth} currency={currency} store={store} now={now} email={email} onAdd={() => setAdding(true)} onRetry={checkEmail} onInboxes={() => setSettings('email')} />
+          <Glance loading={monthLoading} summary={summary} months={shownMonths} onMonth={goMonth} currency={currency} store={store} now={now} email={email} onAdd={() => setAdding(true)} onRetry={checkEmail} onInboxes={() => setSettings('email')} />
+          {monthLoading ? (
+            monthState === 'failed' ? (
+              <p className="p-2 text-lg text-ink-soft">
+                {t('app.monthFailed')}{' '}
+                <button type="button" className={secondaryButton} onClick={() => store.retry(monthRange(key))}>
+                  {t('app.tryAgain')}
+                </button>
+              </p>
+            ) : (
+              <p className="p-2 text-lg text-muted">{t('app.loadingMonth')}</p>
+            )
+          ) : (
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2">
             <WhereItWent summary={summary} currency={currency} selected={shownCategory?.name ?? null} onSelect={(c) => setCategory(c && c.name !== shownCategory?.name ? c : null)} />
             <Purchases summary={summary} category={shownCategory ?? null} currency={currency} today={today} onOpen={setOpen} onAll={() => setCategory(null)} />
           </div>
+          )}
         </>
       )}
 

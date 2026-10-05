@@ -261,5 +261,5 @@ export function useSampleStore(read: () => number = Date.now): SpendingStore {
   // The sample household's dollars, until someone picks another currency in its settings.
   const [currency, setCurrency] = useState('USD');
   const saveCurrency = useMemo(() => async (code: string) => setCurrency(code), []);
-  return { live: false, ready: true, me: SAMPLE_ME, ...derived, actions, mail, inboxes, currency, saveCurrency };
+  return { live: false, ready: true, me: SAMPLE_ME, ...derived, actions, mail, inboxes, currency, saveCurrency, rangeState: () => 'ready', need: () => {}, retry: () => {} };
 }
