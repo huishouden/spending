@@ -1,5 +1,5 @@
 import { addDays, type Ymd } from '@huishouden/pwa-kit/time';
-import { MATCH_WINDOW_DAYS } from '@huishouden/pwa-kit/spending-core';
+import { ALERT_LOOKBACK_DAYS, MATCH_WINDOW_DAYS } from '@huishouden/pwa-kit/spending-core';
 import { addMonth, monthOf, type MonthKey } from './month';
 
 /**
@@ -13,8 +13,8 @@ import { addMonth, monthOf, type MonthKey } from './month';
  * Dates are the transactions' own `YYYY-MM-DD`; a range is `from` (included) to `to` (excluded).
  */
 
-/** Further back than an email alert can be dated (the kit's 30-day lookback, plus matching slack). */
-const ALERT_DAYS = 40;
+/** Further back than an email alert can be dated: the kit's lookback, its matching window, and a week of slack. */
+const ALERT_DAYS = ALERT_LOOKBACK_DAYS + MATCH_WINDOW_DAYS + 7;
 
 /** The first day followed live: last month's first day (this month's glance compares with it), or 40 days back if earlier. */
 export function liveFrom(today: Ymd): Ymd {

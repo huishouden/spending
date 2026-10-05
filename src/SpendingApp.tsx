@@ -127,7 +127,7 @@ export function SpendingApp({ store, frame, toasts, banner }: Props) {
         <p className="p-2 text-lg text-muted">{t('app.loading')}</p>
       ) : (
         <>
-          <Glance summary={summary} months={shownMonths} onMonth={goMonth} currency={currency} store={store} now={now} email={email} onAdd={() => setAdding(true)} onRetry={checkEmail} onInboxes={() => setSettings('email')} />
+          <Glance loading={monthLoading} summary={summary} months={shownMonths} onMonth={goMonth} currency={currency} store={store} now={now} email={email} onAdd={() => setAdding(true)} onRetry={checkEmail} onInboxes={() => setSettings('email')} />
           {monthLoading ? (
             <p className="p-2 text-lg text-muted">{t('app.loadingMonth')}</p>
           ) : (

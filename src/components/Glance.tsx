@@ -22,12 +22,14 @@ interface Props {
   onRetry: () => void;
   /** Settings > Email, where an inbox that stopped is reconnected. */
   onInboxes: () => void;
+  /** The month's purchases are still being read: no totals yet. */
+  loading?: boolean;
 }
 
 /** The answer to "how are we doing this month?", big enough to read across the room. */
-export function Glance({ summary, months, onMonth, currency, store, now, email, onAdd, onRetry, onInboxes }: Props) {
+export function Glance({ summary, months, onMonth, currency, store, now, email, onAdd, onRetry, onInboxes, loading = false }: Props) {
   const t = useT();
-  const line = standing(summary, currency);
+  const line = loading ? null : standing(summary, currency);
   const i = months.indexOf(summary.key);
   const older = months[i + 1];
   const newer = i > 0 ? months[i - 1] : undefined;
@@ -45,7 +47,7 @@ export function Glance({ summary, months, onMonth, currency, store, now, email, 
     <section aria-label={t('glance.label')} className={`${cardClass} shrink-0 p-5 sm:p-6`}>
       <div className="flex items-start gap-3">
         <h2 className="min-w-0 flex-1 text-ink" aria-live="polite">
-          <span className="block text-5xl leading-tight font-semibold tabular-nums sm:inline sm:text-6xl">{money(summary.spentCents, currency, true)}</span>{' '}
+          <span className="block text-5xl leading-tight font-semibold tabular-nums sm:inline sm:text-6xl">{loading ? '…' : money(summary.spentCents, currency, true)}</span>{' '}
           <span className="text-xl font-medium text-muted sm:text-3xl">{t('glance.spentIn', { month: summary.name })}</span>
         </h2>
         <div className="flex shrink-0 items-center">
@@ -58,7 +60,7 @@ export function Glance({ summary, months, onMonth, currency, store, now, email, 
         </div>
       </div>
       {line && <p className={`mt-1 text-xl tabular-nums sm:text-2xl ${line.attention ? 'font-medium text-attention' : 'text-ink-soft'}`}>{line.text}</p>}
-      {summary.budget && <PaceBar budget={summary.budget} isCurrent={summary.isCurrent} />}
+      {!loading && summary.budget && <PaceBar budget={summary.budget} isCurrent={summary.isCurrent} />}
 
       <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-3">
         <p className="min-w-0 flex-1 text-base text-muted" aria-live="polite">

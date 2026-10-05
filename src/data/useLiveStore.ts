@@ -37,7 +37,7 @@ export function useLiveStore(householdId: string | null, me: string, fallback: S
   const [answered, setAnswered] = useState({ tx: false, settings: false });
   const [oldestMonth, setOldestMonth] = useState<string | undefined>(undefined);
   // Older stretches asked for this visit (`need`), each followed until the household changes.
-  const [asked, setAsked] = useState<DateRange[]>([]);
+  const [asked, setAsked] = useState<(DateRange & { hh: string })[]>([]);
   const [loaded, setLoaded] = useState<ReadonlySet<string>>(new Set());
   const from = useLiveFrom();
   const docsRef = useRef(docs);
@@ -116,7 +116,8 @@ export function useLiveStore(householdId: string | null, me: string, fallback: S
   useEffect(() => {
     if (!householdId) return;
     const db = getDb();
-    for (const r of asked) {
+    // Only this household's: right after a switch, `asked` may still hold the last one's for a render.
+    for (const r of asked.filter((a) => a.hh === householdId)) {
       const key = rangeKey(r);
       if (followed.current.has(key)) continue;
       followed.current.set(
@@ -128,7 +129,13 @@ export function useLiveStore(householdId: string | null, me: string, fallback: S
             publish();
             setLoaded((l) => (l.has(key) ? l : new Set([...l, key])));
           },
-          (e) => errorRef.current(t('error.load', { what: t('error.what.transactions'), detail: e.message })),
+          (e) => {
+            // Settled, with the error shown: the month or the import goes on with what is known
+            // rather than waiting for ever, and asking again (another visit) tries again.
+            followed.current.delete(key);
+            setLoaded((l) => new Set([...l, key]));
+            errorRef.current(t('error.load', { what: t('error.what.transactions'), detail: e.message }));
+          },
         ),
       );
     }
@@ -136,13 +143,14 @@ export function useLiveStore(householdId: string | null, me: string, fallback: S
 
   const has = useCallback((range: DateRange) => {
     const older = beforeWindow(range, from);
-    return !older || loaded.has(rangeKey(older)) || asked.some((r) => loaded.has(rangeKey(r)) && r.from <= older.from && r.to >= older.to);
-  }, [from, loaded, asked]);
+    return !older || loaded.has(rangeKey(older)) || asked.some((r) => r.hh === householdId && loaded.has(rangeKey(r)) && r.from <= older.from && r.to >= older.to);
+  }, [from, loaded, asked, householdId]);
   const need = useCallback((range: DateRange) => {
     const older = beforeWindow(range, from);
     if (!older) return;
-    setAsked((list) => (list.some((r) => r.from <= older.from && r.to >= older.to) ? list : [...list, older]));
-  }, [from]);
+    if (!householdId) return;
+    setAsked((list) => (list.some((r) => r.hh === householdId && r.from <= older.from && r.to >= older.to) ? list : [...list, { ...older, hh: householdId }]));
+  }, [from, householdId]);
 
   const actions = useMemo(() => {
     const commit = async (writes: Write[]) => {
