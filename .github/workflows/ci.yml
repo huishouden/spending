@@ -3,12 +3,6 @@ name: ci
 on:
   push:
     branches: [main]
-  pull_request:
-    # Release PRs (release-please, opened by github-actions[bot]) touch only these two files. GitHub
-    # holds runs for bot-opened PRs until someone approves them, and an unapproved run expires as a
-    # failure with no jobs; skipping them here means no run is created. The merge to main still runs
-    # everything. See pwa-kit templates/ci.yml.
-    paths-ignore: [CHANGELOG.md, package.json]
   workflow_dispatch:
     inputs:
       staging-ref:
