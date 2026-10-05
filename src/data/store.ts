@@ -103,6 +103,10 @@ export interface AlertInboxes {
   awaitingGoogle: boolean;
   /** Brings Google's window back to the front while `awaitingGoogle`. */
   showGoogle(): void;
+  /** The browser blocked Google's window on the last `connect`. */
+  blocked: boolean;
+  /** "Continue in this tab": Google's account chooser in this tab, back to Spending, and the inbox connects. */
+  continueHere(): void;
   /** Every inbox checked now, with the household's latest cards and labels. Rejects with the failure in words. */
   checkNow(): Promise<MailStatus | null>;
   disconnect(id: string): Promise<void>;

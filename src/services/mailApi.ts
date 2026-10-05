@@ -101,7 +101,9 @@ const timeZone = () => {
 export const mailApi = (base = MAIL_URL) => ({
   status: (user: Caller, household: string) => mailCall(user, `/api/mail/status?household=${encodeURIComponent(household)}`, undefined, base),
   /** The refresh token goes only to the Worker, which checks it is the caller's own and acts as them with it. */
-  connect: (user: Caller, household: string, code: string) => mailCall(user, '/api/mail/connect', { household, code, refreshToken: user.refreshToken, ...(timeZone() ? { timeZone: timeZone() } : {}) }, base),
+  /** `redirectUri`: the page Google sent the code to ("Continue in this tab"); without it, the popup's. */
+  connect: (user: Caller, household: string, code: string, redirectUri?: string) =>
+    mailCall(user, '/api/mail/connect', { household, code, ...(redirectUri ? { redirectUri } : {}), refreshToken: user.refreshToken, ...(timeZone() ? { timeZone: timeZone() } : {}) }, base),
   check: (user: Caller, household: string) => mailCall(user, '/api/mail/check', { household }, base),
   disconnect: (user: Caller, household: string, inbox: string) => mailCall(user, '/api/mail/disconnect', { household, inbox }, base),
   /** The inbox's emails that couldn't be read; only for the member who connected it. */

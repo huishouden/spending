@@ -4,7 +4,7 @@ import type { Mailbox, MailMessage } from '../lib/mail';
 import { gmailError, gmailMailbox, GmailError } from '@huishouden/pwa-kit/gmail';
 import { checkAlerts, NothingToSearch } from '@huishouden/pwa-kit/spending-core';
 import type { MailStatus, ReviewItem } from '../services/mailApi';
-import { chooserCode, useAlertInboxes } from './useAlertInboxes';
+import { chooserCode, chooserRedirect, chooserReturn, useAlertInboxes } from './useAlertInboxes';
 import { t } from '../i18n';
 import { cardDoc, DEFAULT_SPEND_SETTINGS, ruleDoc, type SpendSettings } from './model';
 import { applyWrites, DEFAULT_RULE_DOCS, derive, emptyDocs, makeActions, type AlertInboxes, type Docs, type SpendingStore } from './store';
@@ -147,7 +147,7 @@ export function sampleReview(now: number): ReviewItem[] {
 
 /** A stand-in signed-in member for browser tests against a stubbed Worker. */
 const testCaller = { getIdToken: async () => 'test-id-token', refreshToken: 'test-refresh-token-for-the-sample' };
-const testAuth = { currentUser: { email: SAMPLE_ME } } as unknown as Auth;
+const testAuth = { currentUser: { uid: 'sample', email: SAMPLE_ME } } as unknown as Auth;
 
 /** The sample household's store. Browser tests can point it at a stubbed Gmail with window.__gmailTestToken. */
 export function useSampleStore(read: () => number = Date.now): SpendingStore {
@@ -189,7 +189,9 @@ export function useSampleStore(read: () => number = Date.now): SpendingStore {
   // Alert inboxes: in memory (one connected, Check now reads the sample mailbox), or a stubbed Worker in browser tests.
   const testBase = typeof window !== 'undefined' ? (window.__mailTestUrl ?? '') : '';
   const testCode = useMemo(() => chooserCode(testAuth, 'test-client.apps.googleusercontent.com'), []);
-  const remote = useAlertInboxes({ householdId: testBase ? 'sample' : null, caller: () => (testBase ? testCaller : null), isAdmin: true, code: testCode, base: testBase });
+  const testRedirect = useMemo(() => chooserRedirect(testAuth, 'test-client.apps.googleusercontent.com'), []);
+  const testReturn = useMemo(() => chooserReturn(testAuth), []);
+  const remote = useAlertInboxes({ householdId: testBase ? 'sample' : null, caller: () => (testBase ? testCaller : null), isAdmin: true, code: testCode, redirect: testRedirect, returned: testReturn, base: testBase });
   const [inboxStatus, setInboxStatus] = useState<MailStatus>(() => sampleInboxStatus(read()));
   const [inboxError, setInboxError] = useState<string | null>(null);
   const [inboxBusy, setInboxBusy] = useState<AlertInboxes['busy']>(null);
@@ -205,6 +207,8 @@ export function useSampleStore(read: () => number = Date.now): SpendingStore {
       refresh: async () => inboxStatus,
       awaitingGoogle: false,
       showGoogle: () => {},
+      blocked: false,
+      continueHere: () => {},
       connect: async () => {
         // No Google window in the sample: a second inbox appears, as a partner's card alerts would.
         update((s) => ({ ...s, inboxes: [...s.inboxes.filter((i) => i.id !== 'ib-partner'), { id: 'ib-partner', address: 'partner-alerts@example.com', by: SAMPLE_ME, mine: true, connectedAt: read(), lastChecked: read(), lastAlertAt: null, lastAdded: null, error: null, checking: false }], lastChecked: read() }));

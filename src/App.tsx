@@ -10,7 +10,7 @@ import { cardClass, primaryButton, SampleBanner, useToast } from '@huishouden/pw
 import { auth, googleClientId, signInWithGoogle, signOutEverywhere } from './services/auth';
 import { getDb } from './services/firestoreTransactions';
 import { useLiveStore } from './data/useLiveStore';
-import { chooserCode, useAlertInboxes } from './data/useAlertInboxes';
+import { chooserCode, chooserRedirect, chooserReturn, useAlertInboxes } from './data/useAlertInboxes';
 import { SAMPLE_NOW, useSampleStore } from './data/sample';
 import { DEFAULT_SPEND_SETTINGS } from './data/model';
 import { PORTAL_URL } from './config/portal';
@@ -83,7 +83,9 @@ function SignedIn({ user, frame }: { user: User; frame: FrameProps }) {
 function LiveApp({ householdId, currency, email, isAdmin, frame }: { householdId: string; currency?: string; email: string; isAdmin: boolean; frame: FrameProps }) {
   const toasts = useToast();
   const code = useMemo(() => chooserCode(auth, googleClientId), []);
-  const inboxes = useAlertInboxes({ householdId, caller: () => auth.currentUser, isAdmin, code });
+  const redirect = useMemo(() => chooserRedirect(auth, googleClientId), []);
+  const returned = useMemo(() => chooserReturn(auth), []);
+  const inboxes = useAlertInboxes({ householdId, caller: () => auth.currentUser, isAdmin, code, redirect, returned });
   const store = useLiveStore(householdId, email, DEFAULT_SPEND_SETTINGS, toasts.fail, inboxes, currency);
   return (
     <ClockProvider read={Date.now}>
