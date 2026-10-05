@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.8.0](https://github.com/huishouden/spending/compare/v2.7.0...v2.8.0) (2026-10-05)
+
+
+### Features
+
+* **inbox:** Continue in this tab, when Google's window is blocked or out of sight ([#53](https://github.com/huishouden/spending/issues/53)) ([c8bf9ce](https://github.com/huishouden/spending/commit/c8bf9ce678c24bb0113944f6899f96d8dafeadaf))
+
 ## [2.7.0](https://github.com/huishouden/spending/compare/v2.6.0...v2.7.0) (2026-10-04)
 
 
