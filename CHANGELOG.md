@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.9.0](https://github.com/huishouden/spending/compare/v2.8.4...v2.9.0) (2026-10-05)
+
+### Features
+
+* hashed assets from the suite's asset CDN (pwa-kit 0.100.0) ([29d3a33](https://github.com/huishouden/spending/commit/29d3a3363d772a78ffd8a7b897c5d7cf0a097c3d))
+
 ## [2.8.4](https://github.com/huishouden/spending/compare/v2.8.3...v2.8.4) (2026-10-05)
 
 ### Bug Fixes
