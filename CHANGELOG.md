@@ -1,10 +1,17 @@
 # Changelog
 
-## [2.9.0](https://github.com/huishouden/spending/compare/v2.8.4...v2.9.0) (2026-10-05)
+## [2.9.0](https://github.com/huishouden/spending/compare/v2.8.5...v2.9.0) (2026-10-05)
 
 ### Features
 
-* hashed assets from the suite's asset CDN (pwa-kit 0.100.0) ([29d3a33](https://github.com/huishouden/spending/commit/29d3a3363d772a78ffd8a7b897c5d7cf0a097c3d))
+* hashed assets from the suite's asset CDN (pwa-kit 0.102.0) ([29d3a33](https://github.com/huishouden/spending/commit/29d3a3363d772a78ffd8a7b897c5d7cf0a097c3d))
+
+## [2.8.5](https://github.com/huishouden/spending/compare/v2.8.4...v2.8.5) (2026-10-05)
+
+### Bug Fixes
+
+* **settings:** the Budget form shows the household's budget, currency and never-count words as they change (also when another member's save arrives after the form opened) until you edit them, and Save writes only what you edited, so it no longer puts back values another member changed
+* a saved budget or setting is no longer put back to an older value by a replayed save, yours or another member's (pwa-kit 0.102.0)
 
 ## [2.8.4](https://github.com/huishouden/spending/compare/v2.8.3...v2.8.4) (2026-10-05)
 

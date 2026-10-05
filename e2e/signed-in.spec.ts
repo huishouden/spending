@@ -27,6 +27,30 @@ test('a budget one member saves is the household budget for the other', { tag: '
   await expect((await budgetSettings(theirs)).getByLabel('Monthly budget')).toHaveValue(budget, { timeout: 20_000 });
 });
 
+// The other member had the form open before the save reached the server (a slow network): the form
+// follows the household's budget until they edit it, so their own Save can't put back the old one.
+test("a member's open Budget form shows another member's save when it arrives", async ({ browser }) => {
+  const page = await hh.open(browser, 'admin', 'about:blank');
+  // The server gets the admin's settings write 4 s late.
+  await page.context().route('**/Write/channel**', async (r) => {
+    if (r.request().method() === 'POST' && (r.request().postData() ?? '').includes('spendingSettings')) await new Promise((ok) => setTimeout(ok, 4_000));
+    await r.continue();
+  });
+  await page.goto('./');
+  await expect(page.getByText('Sample data')).toHaveCount(0);
+  const theirs = await hh.open(browser, 'member');
+  const form = (await budgetSettings(theirs)).getByLabel('Monthly budget');
+  const before = await form.inputValue();
+  const budget = '3150';
+  expect(before).not.toBe(budget);
+  const settings = await budgetSettings(page);
+  await settings.getByLabel('Monthly budget').fill(budget);
+  await settings.getByRole('button', { name: 'Save budget' }).click();
+  await expect(settings.getByRole('status')).toHaveText('Saved', { timeout: 20_000 });
+  await expect(form).toHaveValue(budget, { timeout: 20_000 });
+  await page.context().unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 // Roles: a helper is refused the household's money and nothing loads; the app bar still works for them.
 test('a helper opening Spending is told only admins and members can see the money, and loads none', async ({ page }) => {
   const reads: string[] = [];
