@@ -27,3 +27,5 @@ jobs:
     with:
       base: /spending/
       staging-ref: ${{ inputs.staging-ref }}
+    # CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, for the asset CDN (pwa-kit docs/one-site.md "Asset CDN").
+    secrets: inherit
