@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { expectLocalized, openAppSettings, useLanguage } from '@huishouden/pwa-kit/e2e';
+import { stubGoogle, stubWorker } from './fixtures/mail';
 import es from '../src/locales/es.json' with { type: 'json' };
 import nl from '../src/locales/nl.json' with { type: 'json' };
 
@@ -52,3 +53,25 @@ test('the household currency: euros, written the Spanish way in Spain', async ({
   await expect(page.getByRole('region', { name: es['glance.label'] })).not.toContainText('$');
   await context.close();
 });
+
+// The kit's "Continue in this tab" path (Google's window blocked) in Settings > Email: its message and
+// both buttons in the household's language, with the English gone.
+for (const [lang, messages, words] of [
+  ['es', es, { blocked: 'Tu navegador bloqueó la ventana de Google', button: 'Continuar en esta pestaña', english: ['Continue in this tab', 'blocked Google'] }],
+  ['nl', nl, { blocked: 'Je browser heeft het venster van Google geblokkeerd', button: 'Doorgaan in dit tabblad', english: ['Continue in this tab', 'blocked Google'] }],
+] as const) {
+  test(`Continue in this tab, in ${lang}`, async ({ page }) => {
+    await useLanguage(page, lang);
+    await stubWorker(page);
+    await stubGoogle(page, 'blocked');
+    await page.goto('./', { waitUntil: 'networkidle' });
+    await openAppSettings(page, messages['settings.open']);
+    const settings = page.getByRole('dialog', { name: messages['settings.title'] });
+    await settings.getByRole('button', { name: messages['settings.tab.email'], exact: true }).click();
+    const section = settings.getByRole('region', { name: messages['inbox.title'] });
+    await section.getByRole('button', { name: messages['inbox.connect'] }).click();
+    await expect(section.getByRole('alert')).toContainText(words.blocked);
+    await expect(section.getByRole('button', { name: words.button })).toBeVisible();
+    for (const english of words.english) await expect(section).not.toContainText(english);
+  });
+}
