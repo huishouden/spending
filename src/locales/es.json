@@ -91,7 +91,7 @@
   "import.failed": "No se pudieron agregar las compras.",
   "import.nothingNew": "Nada nuevo para agregar",
   "import.checking": "Buscando compras que ya están aquí",
-  "import.checkFailed": "No se pudo buscar compras que ya están aquí",
+  "import.checkFailed": "No se pudo revisar",
   "import.addN": "{n, plural, one {Agregar # compra} other {Agregar # compras}}",
   "import.none": "Ninguna",
   "import.chooseColumn": "Elige una columna",

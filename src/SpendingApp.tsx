@@ -133,7 +133,7 @@ export function SpendingApp({ store, frame, toasts, banner }: Props) {
             monthState === 'failed' ? (
               <p className="p-2 text-lg text-ink-soft">
                 {t('app.monthFailed')}{' '}
-                <button type="button" className={secondaryButton} onClick={() => need(monthRange(key))}>
+                <button type="button" className={secondaryButton} onClick={() => store.retry(monthRange(key))}>
                   {t('app.tryAgain')}
                 </button>
               </p>

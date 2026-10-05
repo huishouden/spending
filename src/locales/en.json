@@ -91,7 +91,7 @@
   "import.failed": "Couldn't add the purchases.",
   "import.nothingNew": "Nothing new to add",
   "import.checking": "Checking for purchases already here",
-  "import.checkFailed": "Couldn't check for purchases already here",
+  "import.checkFailed": "Couldn't check",
   "import.addN": "{n, plural, one {Add # purchase} other {Add # purchases}}",
   "import.none": "None",
   "import.chooseColumn": "Choose a column",

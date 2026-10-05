@@ -145,8 +145,10 @@ export interface SpendingStore {
    * retries). Call `need` first; the sample has everything.
    */
   rangeState(range: DateRange): RangeState;
-  /** Follows the transactions dated in `range` too, for the rest of the visit; after a failure, tries again. */
+  /** Follows the transactions dated in `range` too, for the rest of the visit. */
   need(range: DateRange): void;
+  /** Reads a range that failed again (a person's Try again). */
+  retry(range: DateRange): void;
   /** The month of the household's oldest transaction, when the store knows it without reading them all. */
   oldestMonth?: string;
 }

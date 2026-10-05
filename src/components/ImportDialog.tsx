@@ -168,7 +168,7 @@ export function ImportDialog({ onClose, store, onDone }: Props) {
         {t('common.cancel')}
       </button>
       {spanState === 'failed' && span && (
-        <button type="button" className={secondaryButton} onClick={() => need(span)}>
+        <button type="button" className={secondaryButton} onClick={() => store.retry(span)}>
           {t('app.tryAgain')}
         </button>
       )}

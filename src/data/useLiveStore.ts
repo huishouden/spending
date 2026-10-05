@@ -133,7 +133,7 @@ export function useLiveStore(householdId: string | null, me: string, fallback: S
             setLoaded((l) => (l.has(key) ? l : new Set([...l, key])));
           },
           (e) => {
-            // Failed, not read: the month and the import say so and offer to try again (`need`).
+            // Failed, not read: the month and the import say so and offer Try again (`retry`).
             followed.current.delete(key);
             setFailed((f) => new Set([...f, key]));
             errorRef.current(t('error.load', { what: t('error.what.transactions'), detail: e.message }));
@@ -155,20 +155,24 @@ export function useLiveStore(householdId: string | null, me: string, fallback: S
     },
     [from, covering, loaded, failed],
   );
+  // Stable for a household and window: asking again for a range already asked (or failed) does nothing.
   const need = useCallback(
     (range: DateRange) => {
       const older = beforeWindow(range, from);
       if (!older || !householdId) return;
-      const list = covering(older);
-      // Asked before and failed: asking again tries again.
-      const retry = list.filter((r) => failed.has(rangeKey(r)));
-      if (list.length && retry.length === list.length) {
-        setFailed((f) => new Set([...f].filter((k) => !retry.some((r) => rangeKey(r) === k))));
-        return;
-      }
-      if (!list.length) setAsked((a) => [...a, { ...older, hh: householdId }]);
+      setAsked((a) => (a.some((r) => r.hh === householdId && r.from <= older.from && r.to >= older.to) ? a : [...a, { ...older, hh: householdId }]));
     },
-    [from, householdId, covering, failed],
+    [from, householdId],
+  );
+  // Only from a person's Try again: clears the failure, and the listener starts again.
+  const retry = useCallback(
+    (range: DateRange) => {
+      const older = beforeWindow(range, from);
+      if (!older) return;
+      const keys = new Set(covering(older).map(rangeKey));
+      setFailed((f) => new Set([...f].filter((k) => !keys.has(k))));
+    },
+    [from, covering],
   );
 
   const actions = useMemo(() => {
@@ -226,5 +230,5 @@ export function useLiveStore(householdId: string | null, me: string, fallback: S
     },
     [householdId],
   );
-  return { live: true, ready: answered.tx && answered.settings, me, ...derived, actions, mail, inboxes, currency, saveCurrency, rangeState, need, oldestMonth };
+  return { live: true, ready: answered.tx && answered.settings, me, ...derived, actions, mail, inboxes, currency, saveCurrency, rangeState, need, retry, oldestMonth };
 }
