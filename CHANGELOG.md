@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.8.5](https://github.com/huishouden/spending/compare/v2.8.4...v2.8.5) (2026-10-05)
+
+### Bug Fixes
+
+* **settings:** the Budget form follows the household's settings until edited ([7c0a4b7](https://github.com/huishouden/spending/commit/7c0a4b7c57a1fe39df1514a27d392830c166548c))
+
 ## [2.8.4](https://github.com/huishouden/spending/compare/v2.8.3...v2.8.4) (2026-10-05)
 
 ### Bug Fixes
