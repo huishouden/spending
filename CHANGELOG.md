@@ -4,7 +4,8 @@
 
 ### Bug Fixes
 
-* **settings:** the Budget form follows the household's settings until edited ([7c0a4b7](https://github.com/huishouden/spending/commit/7c0a4b7c57a1fe39df1514a27d392830c166548c))
+* **settings:** the Budget form shows the household's budget, currency and never-count words as they change (also when another member's save arrives after the form opened) until you edit them, and Save writes only what you edited, so it no longer puts back values another member changed
+* a saved budget or setting is no longer put back to an older value by a replayed save, yours or another member's (pwa-kit 0.102.0)
 
 ## [2.8.4](https://github.com/huishouden/spending/compare/v2.8.3...v2.8.4) (2026-10-05)
 

@@ -61,8 +61,8 @@ export function SettingsDialog({ store, tab, onTab, notify, onClose }: Props) {
         ))}
       </div>
       {!store.live && <p className="mb-4 rounded-xl bg-sunken px-4 py-3 text-sm text-muted">{t('settings.sample')}</p>}
-      {/* Each tab copies the settings into its form when it opens: before they arrive it would show
-          the defaults, and saving would overwrite the household's own. */}
+      {/* Before the settings arrive the tabs would show the defaults, and a save could overwrite the
+          household's own. The Budget tab then follows them until a field is edited. */}
       {!store.ready ? (
         <p role="status" className="py-6 text-base text-muted">
           {t('settings.loading')}

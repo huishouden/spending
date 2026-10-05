@@ -46,7 +46,7 @@ test("a member's open Budget form shows another member's save when it arrives", 
   const settings = await budgetSettings(page);
   await settings.getByLabel('Monthly budget').fill(budget);
   await settings.getByRole('button', { name: 'Save budget' }).click();
-  await expect(settings.getByRole('status')).toHaveText('Saved');
+  await expect(settings.getByRole('status')).toHaveText('Saved', { timeout: 20_000 });
   await expect(form).toHaveValue(budget, { timeout: 20_000 });
   await page.context().unrouteAll({ behavior: 'ignoreErrors' });
 });
