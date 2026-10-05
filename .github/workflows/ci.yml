@@ -13,7 +13,9 @@ on:
 concurrency:
   # A manual staging deploy from main must not cancel main's production deploy.
   group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.staging-ref }}
-  cancel-in-progress: true
+  # Never cancel a production deploy halfway (a newer push to main waits for it); a superseded
+  # staging deploy may be dropped.
+  cancel-in-progress: ${{ github.event_name == 'workflow_dispatch' && inputs.staging-ref != '' }}
 
 permissions:
   contents: read
