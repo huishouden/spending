@@ -115,7 +115,10 @@ Security rules live in [huishouden/rules](https://github.com/huishouden/rules) `
 
 Built on [pwa-kit](https://github.com/huishouden/pwa-kit) and follows its
 [standard](https://github.com/huishouden/pwa-kit/blob/main/STANDARD.md). Merges to `main` deploy to
-Firebase Hosting (project `huishouden-piekstra`), then run the e2e tests and refresh the screenshots.
+Firebase Hosting (project `huishouden-piekstra`); the hashed build files go to the suite's asset CDN
+(the Cloudflare Worker `huishouden-assets`, with the repo secrets `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID`; the variable `HH_ASSET_CDN=off` serves them from Firebase again). Then the
+e2e tests run and the screenshots are refreshed.
 
 ## License
 
