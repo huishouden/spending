@@ -2,6 +2,7 @@ import { DEFAULT_RULES } from '../lib/categorise';
 import type { CsvMapping, StatementRow } from '../lib/csvImport';
 import type { Mailbox } from '../lib/mail';
 import type { MailStatus, ReviewAnswer, ReviewItem } from '../services/mailApi';
+import type { DateRange } from '../lib/window';
 import { planImport, statementIds, type AlertTx, type Plan } from '@huishouden/pwa-kit/spending-core';
 import type { SheetSettings } from '../lib/sheetSettings';
 import {
@@ -136,6 +137,15 @@ export interface SpendingStore {
   currency: string;
   /** Sets the household's currency, for every app (households/{id}.currency). */
   saveCurrency(code: string): Promise<void>;
+  /**
+   * Whether `records` has every transaction dated in `range` (the live store follows only recent
+   * ones, src/lib/window.ts). Call `need` first; the sample has everything.
+   */
+  has(range: DateRange): boolean;
+  /** Follows the transactions dated in `range` too, for the rest of the visit. */
+  need(range: DateRange): void;
+  /** The month of the household's oldest transaction, when the store knows it without reading them all. */
+  oldestMonth?: string;
 }
 
 export interface Derived {

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FileUp, Trash2 } from 'lucide-react';
 import type { SpendingStore } from '../data/store';
 import { cardFromFileName, detectMapping, mappingFits, parseStatement, readCsv, type CsvFile, type CsvMapping, type StatementRow } from '../lib/csvImport';
@@ -6,6 +6,7 @@ import { Dialog, ghostButton, iconButton, inputClass, primaryButton, secondaryBu
 import { shortDate, toYmd } from '@huishouden/pwa-kit/time';
 import { useClock } from '@huishouden/pwa-kit/react/clock';
 import { categoryLabel, cents, money } from '../lib/month';
+import { statementRange } from '../lib/window';
 import { formatList, formatNumber } from '@huishouden/pwa-kit/i18n';
 import { t as tt, useT } from '../i18n';
 
@@ -86,6 +87,13 @@ export function ImportDialog({ onClose, store, onDone }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [files, store.cards, store.rules, store.settings.ignoredKeywords],
   );
+  // Duplicates are found among the household's purchases on the statements' days, which may be older than the ones Spending follows.
+  const span = useMemo(() => statementRange(parsed.flatMap((p) => p?.rows.map((r) => r.date) ?? [])), [parsed]);
+  const { need } = store;
+  useEffect(() => {
+    if (span) need(span);
+  }, [need, span]);
+  const checked = !span || store.has(span);
   const plan = useMemo(() => store.actions.planStatements(parsed.map((p) => p?.rows ?? [])), [parsed, store.actions, store.records]);
   const perFile = (i: number) => ({
     added: plan.create.filter((r) => r.group === i).length,
@@ -126,7 +134,7 @@ export function ImportDialog({ onClose, store, onDone }: Props) {
     update(i, { mapping: next, missing: missingColumns(next) });
   };
 
-  const ready = files.length > 0 && files.every((f, i) => parsed[i] && cardName(f));
+  const ready = checked && files.length > 0 && files.every((f, i) => parsed[i] && cardName(f));
   const total = plan.create.length + plan.replace.length;
 
   const save = async () => {
@@ -159,7 +167,7 @@ export function ImportDialog({ onClose, store, onDone }: Props) {
         {t('common.cancel')}
       </button>
       <button type="button" className={primaryButton} disabled={!ready || busy || total === 0} onClick={save}>
-        {total === 0 && ready ? t('import.nothingNew') : t('import.addN', { n: total })}
+        {!checked ? t('import.checking') : total === 0 && ready ? t('import.nothingNew') : t('import.addN', { n: total })}
       </button>
     </>
   );
