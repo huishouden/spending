@@ -76,7 +76,8 @@ export function useLiveStore(householdId: string | null, me: string, fallback: S
         const date = s.docs[0]?.data().date;
         if (typeof date === 'string' && /^\d{4}-\d{2}/.test(date)) setOldestMonth(date.slice(0, 7));
       })
-      .catch(() => {});
+      // Without it the picker still offers the months already read; the error says why older ones are missing.
+      .catch((e: Error) => errorRef.current(t('error.load', { what: t('error.what.transactions'), detail: e.message })));
     const unsubs = [
       watch('spendingCards'),
       watch('spendingRules'),
