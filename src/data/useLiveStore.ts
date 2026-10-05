@@ -9,7 +9,7 @@ import type { SpendSettings } from './model';
 import { setHouseholdCurrency } from '@huishouden/pwa-kit/household';
 import { spendingCurrency } from '../lib/month';
 import { t } from '../i18n';
-import { derive, emptyDocs, makeActions, type AlertInboxes, type Docs, type SpendingStore, type Write } from './store';
+import { derive, emptyDocs, makeActions, type AlertInboxes, type Docs, type RangeState, type SpendingStore, type Write } from './store';
 import { beforeWindow, liveFrom, mergeRanges, rangeKey, type DateRange } from '../lib/window';
 
 /** Firestore takes at most 500 writes per batch. */
@@ -39,6 +39,8 @@ export function useLiveStore(householdId: string | null, me: string, fallback: S
   // Older stretches asked for this visit (`need`), each followed until the household changes.
   const [asked, setAsked] = useState<(DateRange & { hh: string })[]>([]);
   const [loaded, setLoaded] = useState<ReadonlySet<string>>(new Set());
+  // Ranges whose listener failed: not known, so neither the month nor an import treats them as read.
+  const [failed, setFailed] = useState<ReadonlySet<string>>(new Set());
   const from = useLiveFrom();
   const docsRef = useRef(docs);
   docsRef.current = docs;
@@ -56,6 +58,7 @@ export function useLiveStore(householdId: string | null, me: string, fallback: S
     setOldestMonth(undefined);
     setAsked([]);
     setLoaded(new Set());
+    setFailed(new Set());
     ranges.current = new Map();
     if (!householdId) return;
     const db = getDb();
@@ -119,7 +122,7 @@ export function useLiveStore(householdId: string | null, me: string, fallback: S
     // Only this household's: right after a switch, `asked` may still hold the last one's for a render.
     for (const r of asked.filter((a) => a.hh === householdId)) {
       const key = rangeKey(r);
-      if (followed.current.has(key)) continue;
+      if (followed.current.has(key) || failed.has(key)) continue;
       followed.current.set(
         key,
         onSnapshot(
@@ -130,27 +133,43 @@ export function useLiveStore(householdId: string | null, me: string, fallback: S
             setLoaded((l) => (l.has(key) ? l : new Set([...l, key])));
           },
           (e) => {
-            // Settled, with the error shown: the month or the import goes on with what is known
-            // rather than waiting for ever, and asking again (another visit) tries again.
+            // Failed, not read: the month and the import say so and offer to try again (`need`).
             followed.current.delete(key);
-            setLoaded((l) => new Set([...l, key]));
+            setFailed((f) => new Set([...f, key]));
             errorRef.current(t('error.load', { what: t('error.what.transactions'), detail: e.message }));
           },
         ),
       );
     }
-  }, [householdId, asked, publish]);
+  }, [householdId, asked, failed, publish]);
 
-  const has = useCallback((range: DateRange) => {
-    const older = beforeWindow(range, from);
-    return !older || loaded.has(rangeKey(older)) || asked.some((r) => r.hh === householdId && loaded.has(rangeKey(r)) && r.from <= older.from && r.to >= older.to);
-  }, [from, loaded, asked, householdId]);
-  const need = useCallback((range: DateRange) => {
-    const older = beforeWindow(range, from);
-    if (!older) return;
-    if (!householdId) return;
-    setAsked((list) => (list.some((r) => r.hh === householdId && r.from <= older.from && r.to >= older.to) ? list : [...list, { ...older, hh: householdId }]));
-  }, [from, householdId]);
+  // Covering asked ranges of this household: the stretch is known once one of them has answered.
+  const covering = useCallback((older: DateRange) => asked.filter((r) => r.hh === householdId && r.from <= older.from && r.to >= older.to), [asked, householdId]);
+  const rangeState = useCallback(
+    (range: DateRange): RangeState => {
+      const older = beforeWindow(range, from);
+      if (!older) return 'ready';
+      const list = covering(older);
+      if (list.some((r) => loaded.has(rangeKey(r)))) return 'ready';
+      return list.length && list.every((r) => failed.has(rangeKey(r))) ? 'failed' : 'loading';
+    },
+    [from, covering, loaded, failed],
+  );
+  const need = useCallback(
+    (range: DateRange) => {
+      const older = beforeWindow(range, from);
+      if (!older || !householdId) return;
+      const list = covering(older);
+      // Asked before and failed: asking again tries again.
+      const retry = list.filter((r) => failed.has(rangeKey(r)));
+      if (list.length && retry.length === list.length) {
+        setFailed((f) => new Set([...f].filter((k) => !retry.some((r) => rangeKey(r) === k))));
+        return;
+      }
+      if (!list.length) setAsked((a) => [...a, { ...older, hh: householdId }]);
+    },
+    [from, householdId, covering, failed],
+  );
 
   const actions = useMemo(() => {
     const commit = async (writes: Write[]) => {
@@ -207,5 +226,5 @@ export function useLiveStore(householdId: string | null, me: string, fallback: S
     },
     [householdId],
   );
-  return { live: true, ready: answered.tx && answered.settings, me, ...derived, actions, mail, inboxes, currency, saveCurrency, has, need, oldestMonth };
+  return { live: true, ready: answered.tx && answered.settings, me, ...derived, actions, mail, inboxes, currency, saveCurrency, rangeState, need, oldestMonth };
 }

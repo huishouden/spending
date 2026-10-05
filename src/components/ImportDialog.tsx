@@ -93,7 +93,8 @@ export function ImportDialog({ onClose, store, onDone }: Props) {
   useEffect(() => {
     if (span) need(span);
   }, [need, span]);
-  const checked = !span || store.has(span);
+  const spanState = span ? store.rangeState(span) : 'ready';
+  const checked = spanState === 'ready';
   const plan = useMemo(() => store.actions.planStatements(parsed.map((p) => p?.rows ?? [])), [parsed, store.actions, store.records]);
   const perFile = (i: number) => ({
     added: plan.create.filter((r) => r.group === i).length,
@@ -166,8 +167,13 @@ export function ImportDialog({ onClose, store, onDone }: Props) {
       <button type="button" className={ghostButton} onClick={onClose}>
         {t('common.cancel')}
       </button>
+      {spanState === 'failed' && span && (
+        <button type="button" className={secondaryButton} onClick={() => need(span)}>
+          {t('app.tryAgain')}
+        </button>
+      )}
       <button type="button" className={primaryButton} disabled={!ready || busy || total === 0} onClick={save}>
-        {!checked ? t('import.checking') : total === 0 && ready ? t('import.nothingNew') : t('import.addN', { n: total })}
+        {spanState === 'failed' ? t('import.checkFailed') : !checked ? t('import.checking') : total === 0 && ready ? t('import.nothingNew') : t('import.addN', { n: total })}
       </button>
     </>
   );

@@ -119,6 +119,8 @@ export interface AlertInboxes {
   undo(inbox: string, importId: string): Promise<void>;
 }
 
+export type RangeState = 'ready' | 'loading' | 'failed';
+
 export interface SpendingStore {
   live: boolean;
   /** False until the first answer from the store. */
@@ -139,10 +141,11 @@ export interface SpendingStore {
   saveCurrency(code: string): Promise<void>;
   /**
    * Whether `records` has every transaction dated in `range` (the live store follows only recent
-   * ones, src/lib/window.ts). Call `need` first; the sample has everything.
+   * ones, src/lib/window.ts): 'loading' until read, 'failed' when reading failed (`need` again
+   * retries). Call `need` first; the sample has everything.
    */
-  has(range: DateRange): boolean;
-  /** Follows the transactions dated in `range` too, for the rest of the visit. */
+  rangeState(range: DateRange): RangeState;
+  /** Follows the transactions dated in `range` too, for the rest of the visit; after a failure, tries again. */
   need(range: DateRange): void;
   /** The month of the household's oldest transaction, when the store knows it without reading them all. */
   oldestMonth?: string;
