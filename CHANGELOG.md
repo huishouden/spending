@@ -2,9 +2,9 @@
 
 ## [2.8.4](https://github.com/huishouden/spending/compare/v2.8.3...v2.8.4) (2026-10-05)
 
-### Other
+### Bug Fixes
 
-* Maintenance
+* a change saved offline (a purchase, a card, a rule or the budget) is no longer lost if the app reloads before it syncs; signing out everywhere clears unsent changes from the device (pwa-kit 0.98.0)
 
 ## [2.8.3](https://github.com/huishouden/spending/compare/v2.8.2...v2.8.3) (2026-10-05)
 
