@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.8.1](https://github.com/huishouden/spending/compare/v2.8.0...v2.8.1) (2026-10-05)
+
+
+### Bug Fixes
+
+* **settings:** no Spending settings while loading; signed-in tests on a household of the run's own ([#46](https://github.com/huishouden/spending/issues/46))
+
+
+### Documentation
+
+* README covers Continue in this tab; i18n e2e checks its words in es and nl ([#58](https://github.com/huishouden/spending/issues/58))
+
 ## [2.8.0](https://github.com/huishouden/spending/compare/v2.7.0...v2.8.0) (2026-10-05)
 
 
