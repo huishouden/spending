@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.9.2](https://github.com/huishouden/spending/compare/v2.9.1...v2.9.2) (2026-10-05)
+
+### Bug Fixes
+
+* Rebuild against the re-tagged kit ([2c8cc08](https://github.com/huishouden/spending/commit/2c8cc083067bb2b087bd93b475f89720d4c6fe3a))
+
 ## [2.9.1](https://github.com/huishouden/spending/compare/v2.9.0...v2.9.1) (2026-10-05)
 
 ### Performance
