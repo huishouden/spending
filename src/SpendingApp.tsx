@@ -16,6 +16,7 @@ import { PurchaseDialog } from './components/PurchaseDialog';
 import { AddSpendingDialog } from './components/AddSpendingDialog';
 import { ImportDialog } from './components/ImportDialog';
 import { SettingsDialog, type SettingsTab } from './components/SettingsDialog';
+import { googleRedirectReturned } from '@huishouden/pwa-kit/google-token';
 import { useT } from './i18n';
 
 const VERSION = `${import.meta.env.VITE_APP_VERSION} (${import.meta.env.VITE_BUILD_SHA})`;
@@ -62,7 +63,8 @@ export function SpendingApp({ store, frame, toasts, banner }: Props) {
   const [open, setOpen] = useState<SpendingRecord | null>(null);
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [settings, setSettings] = useState<SettingsTab | null>(null);
+  // Back from Google's account chooser in this tab ("Continue in this tab"): the inbox, where it connects.
+  const [settings, setSettings] = useState<SettingsTab | null>(() => (googleRedirectReturned() ? 'email' : null));
   // Anonymous counts of what is used, per visit (the portal's /privacy page).
   useEffect(() => {
     trackView(settings ? `settings:${settings}` : category ? 'category' : 'overview');

@@ -58,7 +58,7 @@ export function AlertInboxSection({ store }: { store: SpendingStore }) {
               </button>
             )}
           </div>
-          <GoogleWindowWait waiting={inboxes.awaitingGoogle} onShow={inboxes.showGoogle} />
+          <GoogleWindowWait waiting={inboxes.awaitingGoogle} blocked={inboxes.blocked} onShow={inboxes.showGoogle} onContinueHere={inboxes.continueHere} />
           {inboxes.error && (
             <p role="alert" className="rounded-xl bg-error-tint px-3 py-2 text-error">
               {inboxes.error}

@@ -128,6 +128,11 @@ async function stubGoogle(page: Page, answer: Record<string, string> | 'blocked'
             initCodeClient: (cfg: Record<string, unknown> & { callback: (r: Record<string, string>) => void; error_callback?: (e: { type: string; message?: string }) => void }) => ({
               requestCode: () => {
                 const { callback: _c, error_callback: _e, ...rest } = cfg;
+                if (cfg.ux_mode === 'redirect') {
+                  // Google's account chooser in this tab, then back to Spending with a one-time code.
+                  location.assign(`${cfg.redirect_uri}?state=${cfg.state}&code=4%2F0-redirect-code&scope=${encodeURIComponent(String(cfg.scope))}&authuser=1&prompt=consent`);
+                  return;
+                }
                 asked.push(rest);
                 // A blocked window ends at once; a window out of sight never answers.
                 if (answer === 'blocked') setTimeout(() => cfg.error_callback?.({ type: 'popup_failed_to_open', message: 'Failed to open popup window' }), 10);
@@ -180,9 +185,35 @@ test.describe('with the calendar Worker (stubbed)', () => {
     await page.goto('./');
     const section = await openEmail(page);
     await section.getByRole('button', { name: 'Connect alert inbox' }).click();
-    await expect(section.getByRole('alert')).toHaveText('Your browser blocked Google’s window. Allow pop-ups for this site, then try again.');
+    await expect(section.getByRole('alert')).toHaveText('Your browser blocked Google’s window. Allow pop-ups for this site, or use Continue in this tab.');
     await expect(section.getByRole('button', { name: 'Connect alert inbox' })).toBeEnabled();
     expect(worker.calls.some((c) => c.path === '/api/mail/connect')).toBe(false);
+  });
+
+  test('Continue in this tab: the account chooser here, back to Spending’s inbox, connected with that page’s code', async ({ page }) => {
+    const worker = await stubWorker(page);
+    await stubGoogle(page, 'blocked');
+    await page.goto('./');
+    let section = await openEmail(page);
+    await section.getByRole('button', { name: 'Connect alert inbox' }).click();
+    // Back on Spending, its first status (from before the connect: no inbox) answers only after the
+    // connect: it must not undo it.
+    let stale = true;
+    await page.route(`${WORKER}/api/mail/status**`, async (route) => {
+      if (!stale || route.request().method() !== 'GET') return route.fallback();
+      stale = false;
+      await new Promise((r) => setTimeout(r, 1500));
+      await route.fulfill({ json: { available: true, inboxes: [], lastChecked: null }, headers: { 'Access-Control-Allow-Origin': '*' } });
+    });
+    await section.getByRole('button', { name: 'Continue in this tab' }).click();
+    // Back on Spending: Settings > Email opens by itself and the inbox connects.
+    section = page.getByRole('dialog', { name: 'Settings' }).getByRole('region', { name: 'Alert inbox' });
+    await expect(section.getByRole('list', { name: 'Connected inboxes' }).getByRole('listitem', { name: 'alerts.example@example.com' })).toBeVisible({ timeout: 15_000 });
+    await page.waitForTimeout(2000);
+    await expect(section.getByRole('list', { name: 'Connected inboxes' }).getByRole('listitem', { name: 'alerts.example@example.com' })).toBeVisible();
+    const connect = worker.calls.find((c) => c.path === '/api/mail/connect')!;
+    expect(connect.body).toMatchObject({ household: 'sample', code: '4/0-redirect-code', redirectUri: `${new URL(page.url()).origin}/spending/` });
+    expect(new URL(page.url()).searchParams.has('code')).toBe(false);
   });
 
   test('a Google window out of sight: after a few seconds, a way to bring it back', async ({ page }) => {
@@ -191,7 +222,8 @@ test.describe('with the calendar Worker (stubbed)', () => {
     await page.goto('./');
     const section = await openEmail(page);
     await section.getByRole('button', { name: 'Connect alert inbox' }).click();
-    await expect(section.getByRole('status').filter({ hasText: 'Can’t see it? It may be behind this window.' })).toBeVisible({ timeout: 10_000 });
+    await expect(section.getByRole('status').filter({ hasText: 'Can’t see it? It may be behind this window, or continue in this tab instead.' })).toBeVisible({ timeout: 10_000 });
+    await expect(section.getByRole('button', { name: 'Continue in this tab' })).toBeVisible();
     await section.getByRole('button', { name: 'Show Google’s window' }).click();
     expect(await page.evaluate(() => (window as unknown as { __codeRequests: unknown[] }).__codeRequests.length)).toBe(2);
   });

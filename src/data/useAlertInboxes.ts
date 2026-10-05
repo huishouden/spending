@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Auth } from 'firebase/auth';
-import { googleAuthCode } from '@huishouden/pwa-kit/google-token';
+import { googleAuthCode, googleAuthCodeRedirect, googleAuthCodeReturn } from '@huishouden/pwa-kit/google-token';
 import { GMAIL_READONLY_SCOPE } from '@huishouden/pwa-kit/gmail';
-import { googleWindowMessage } from '@huishouden/pwa-kit/feedback';
+import { googleWindowMessage, popupBlocked } from '@huishouden/pwa-kit/feedback';
 import { track } from '@huishouden/pwa-kit/observability';
 import { mailApi, MailCallError, MAIL_URL, type Caller, type MailStatus, type ReviewAnswer } from '../services/mailApi';
 import { t } from '../i18n';
@@ -20,7 +20,7 @@ export function inboxError(e: unknown): string | null {
   const code = e instanceof MailCallError ? e.code : (e as { code?: string })?.code;
   // Google's window: blocked, closed before finishing, or stopped. Never silent.
   if (!(e instanceof MailCallError) && code !== 'access_denied') {
-    const google = googleWindowMessage(e, 'Gmail');
+    const google = googleWindowMessage(e, 'Gmail', { continueHere: true });
     if (google) return google;
   }
   switch (code) {
@@ -48,6 +48,10 @@ export interface InboxDeps {
   isAdmin: boolean;
   /** Google's one-time code for gmail.readonly, from the account chooser. */
   code: () => Promise<string>;
+  /** "Continue in this tab": the account chooser in this tab instead of a window (`chooserRedirect`). */
+  redirect?: () => Promise<void>;
+  /** Google's answer when this page is the return from `redirect` (`chooserReturn`), taken once. */
+  returned?: () => { code: string; redirectUri: string } | null;
   base?: string;
 }
 
@@ -55,23 +59,41 @@ export interface InboxDeps {
 export const chooserCode = (auth: Auth, clientId?: string) => async () =>
   (await googleAuthCode(auth, [GMAIL_READONLY_SCOPE], { selectAccount: true, deniedMessage: t('inbox.err.denied'), ...(clientId ? { clientId } : {}) })).code;
 
+/** Spending's own address, as the OAuth client and the calendar Worker list it for "Continue in this tab". */
+const SPENDING_PAGE = typeof location === 'undefined' ? '' : new URL(import.meta.env.BASE_URL, location.origin).href;
+
+/** The account chooser in this tab, back to Spending (an Authorized redirect URI of the client). */
+export const chooserRedirect = (auth: Auth, clientId?: string) => () =>
+  googleAuthCodeRedirect(auth, [GMAIL_READONLY_SCOPE], { selectAccount: true, redirectUri: SPENDING_PAGE, data: 'inbox', ...(clientId ? { clientId } : {}) });
+
+/** Google's answer on the way back from `chooserRedirect`: null when this page isn't one. */
+export const chooserReturn = (auth: Auth) => () => googleAuthCodeReturn(auth, { deniedMessage: t('inbox.err.denied') });
+
 /** The household's alert inboxes, through the calendar Worker. */
-export function useAlertInboxes({ householdId, caller, isAdmin, code, base = MAIL_URL }: InboxDeps): AlertInboxes {
+export function useAlertInboxes({ householdId, caller, isAdmin, code, redirect, returned, base = MAIL_URL }: InboxDeps): AlertInboxes {
   const [status, setStatus] = useState<MailStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<AlertInboxes['busy']>(null);
   const [awaitingGoogle, setAwaitingGoogle] = useState(false);
+  const [blocked, setBlocked] = useState(false);
   const askedAt = useRef(0);
   const api = useMemo(() => mailApi(base), [base]);
-  const deps = useRef({ caller, code });
-  deps.current = { caller, code };
+  const deps = useRef({ caller, code, redirect, returned });
+  deps.current = { caller, code, redirect, returned };
+  const tookReturn = useRef(false);
+  const version = useRef(0);
 
   const run = useCallback(
-    async (what: (c: Caller, household: string) => Promise<MailStatus>): Promise<MailStatus | null> => {
+    async (what: (c: Caller, household: string) => Promise<MailStatus>, readOnly = false): Promise<MailStatus | null> => {
       const c = deps.current.caller();
       if (!c || !householdId) return null;
+      const asked = version.current;
       const s = await what(c, householdId);
       askedAt.current = Date.now();
+      // A status asked for before an action answered (back from Google's page, the connect can
+      // finish first) must not undo that action's.
+      if (readOnly && version.current !== asked) return s;
+      if (!readOnly) version.current++;
       setStatus(s);
       return s;
     },
@@ -80,7 +102,7 @@ export function useAlertInboxes({ householdId, caller, isAdmin, code, base = MAI
 
   const refresh = useCallback(async () => {
     try {
-      const s = await run((c, h) => api.status(c, h));
+      const s = await run((c, h) => api.status(c, h), true);
       setError(null);
       return s;
     } catch (e) {
@@ -136,6 +158,23 @@ export function useAlertInboxes({ householdId, caller, isAdmin, code, base = MAI
     [],
   );
 
+  // Back from Google's account chooser in this tab: connect that inbox, once, when the member is known.
+  useEffect(() => {
+    if (!base || !householdId || tookReturn.current || !deps.current.caller()) return;
+    tookReturn.current = true;
+    let answer: { code: string; redirectUri: string } | null | undefined;
+    try {
+      answer = deps.current.returned?.();
+    } catch (e) {
+      setError(inboxError(e));
+      return;
+    }
+    if (!answer) return;
+    const { code: one, redirectUri } = answer;
+    track('connect alert inbox in this tab');
+    void act('connect', () => run((c, h) => api.connect(c, h, one, redirectUri)));
+  });
+
   return useMemo(
     () => ({
       available: !!base,
@@ -146,14 +185,26 @@ export function useAlertInboxes({ householdId, caller, isAdmin, code, base = MAI
       refresh,
       connect: async () => {
         track('connect alert inbox');
+        setBlocked(false);
         await act('connect', async () => {
           // Straight from the tap: anything awaited before Google's window opens gets it blocked.
           setAwaitingGoogle(true);
-          const one = await deps.current.code().finally(() => setAwaitingGoogle(false));
+          const one = await deps.current
+            .code()
+            .catch((e: unknown) => {
+              setBlocked(popupBlocked(e));
+              throw e;
+            })
+            .finally(() => setAwaitingGoogle(false));
           return run((c, h) => api.connect(c, h, one));
         });
       },
       awaitingGoogle,
+      blocked,
+      continueHere: () => {
+        track('connect alert inbox in this tab');
+        deps.current.redirect?.().catch((e: unknown) => setError(inboxError(e)));
+      },
       // Asking again while Google's window is open brings that window to the front (the kit reuses it).
       showGoogle: () => void deps.current.code().catch(() => undefined),
       checkNow: () => act('check', () => run((c, h) => api.check(c, h)), true),
@@ -185,6 +236,6 @@ export function useAlertInboxes({ householdId, caller, isAdmin, code, base = MAI
         await act('undo', () => run((c, h) => api.undo(c, h, inbox, importId)));
       },
     }),
-    [base, status, error, busy, awaitingGoogle, isAdmin, refresh, act, run, api, householdId],
+    [base, status, error, busy, awaitingGoogle, blocked, isAdmin, refresh, act, run, api, householdId],
   );
 }
