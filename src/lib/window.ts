@@ -55,6 +55,27 @@ export function uncovered(range: DateRange, ranges: readonly DateRange[]): DateR
   return gaps;
 }
 
+/** The asked ranges by how they stand: read, failed, or still on their way. */
+export interface AskedRanges {
+  answered: readonly DateRange[];
+  pending: readonly DateRange[];
+  failed: readonly DateRange[];
+}
+
+/**
+ * Whether the asked ranges have all of `range`: 'ready' once the answered ones together cover it;
+ * 'failed' when a part of it only failed ones cover (a person's Try again); 'loading' otherwise,
+ * also for a part nothing covers yet (it is about to be asked).
+ */
+export function coverageState(range: DateRange, { answered, pending, failed }: AskedRanges): 'ready' | 'loading' | 'failed' {
+  if (!uncovered(range, answered).length) return 'ready';
+  const failedOnly = uncovered(range, [...answered, ...pending]).length > 0 && !uncovered(range, [...answered, ...pending, ...failed]).length;
+  return failedOnly ? 'failed' : 'loading';
+}
+
+/** The ranges that share a day with `range`. */
+export const overlapping = <R extends DateRange>(range: DateRange, ranges: readonly R[]): R[] => ranges.filter((r) => r.from < range.to && r.to > range.from);
+
 /** The days a month's glance needs: the month and the one before (its comparison). */
 export function monthRange(key: MonthKey): DateRange {
   return { from: `${addMonth(key, -1)}-01`, to: `${addMonth(key, 1)}-01` };

@@ -10,7 +10,7 @@ import { setHouseholdCurrency } from '@huishouden/pwa-kit/household';
 import { spendingCurrency } from '../lib/month';
 import { t } from '../i18n';
 import { derive, emptyDocs, makeActions, type AlertInboxes, type Docs, type RangeState, type SpendingStore, type Write } from './store';
-import { beforeWindow, liveFrom, mergeRanges, rangeKey, uncovered, type DateRange } from '../lib/window';
+import { beforeWindow, coverageState, liveFrom, mergeRanges, overlapping, rangeKey, uncovered, type DateRange } from '../lib/window';
 
 /** Firestore takes at most 500 writes per batch. */
 const BATCH = 400;
@@ -150,12 +150,8 @@ export function useLiveStore(householdId: string | null, me: string, fallback: S
     (range: DateRange): RangeState => {
       const older = beforeWindow(range, from);
       if (!older) return 'ready';
-      const answered = mine.filter((r) => loaded.has(rangeKey(r)));
-      if (!uncovered(older, answered).length) return 'ready';
-      const pending = mine.filter((r) => !loaded.has(rangeKey(r)) && !failed.has(rangeKey(r)));
-      // A part only failed ranges cover is failed (Try again); a part nothing covers yet is about to be asked.
-      const failedOnly = uncovered(older, [...answered, ...pending]).length > 0 && !uncovered(older, mine).length;
-      return failedOnly ? 'failed' : 'loading';
+      const state = (r: DateRange) => (loaded.has(rangeKey(r)) ? 'answered' : failed.has(rangeKey(r)) ? 'failed' : 'pending');
+      return coverageState(older, { answered: mine.filter((r) => state(r) === 'answered'), pending: mine.filter((r) => state(r) === 'pending'), failed: mine.filter((r) => state(r) === 'failed') });
     },
     [from, mine, loaded, failed],
   );
@@ -177,7 +173,7 @@ export function useLiveStore(householdId: string | null, me: string, fallback: S
     (range: DateRange) => {
       const older = beforeWindow(range, from);
       if (!older) return;
-      const keys = new Set(mine.filter((r) => r.from < older.to && r.to > older.from).map(rangeKey));
+      const keys = new Set(overlapping(older, mine).map(rangeKey));
       setFailed((f) => new Set([...f].filter((k) => !keys.has(k))));
     },
     [from, mine],

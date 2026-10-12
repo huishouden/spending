@@ -4,7 +4,7 @@ import { planImport } from '@huishouden/pwa-kit/spending-core';
 import { detectMapping, parseStatement, readCsv } from './csvImport';
 import { applyWrites, DEFAULT_RULE_DOCS, derive, emptyDocs, makeActions, type Docs, type Write } from '../data/store';
 import { DEFAULT_SPEND_SETTINGS } from '../data/model';
-import { beforeWindow, liveFrom, mergeRanges, monthRange, monthsSince, rangeKey, statementRange, uncovered } from './window';
+import { beforeWindow, liveFrom, mergeRanges, monthRange, monthsSince, rangeKey, statementRange, uncovered, coverageState, overlapping } from './window';
 
 describe('the live window', () => {
   test('starts on last month’s first day, or 40 days back when that is earlier', () => {
@@ -30,6 +30,22 @@ describe('the live window', () => {
     expect(uncovered(r('2026-01-01', '2026-12-01'), [r('2026-03-01', '2026-04-01'), r('2026-06-01', '2026-07-01')])).toEqual([r('2026-01-01', '2026-03-01'), r('2026-04-01', '2026-06-01'), r('2026-07-01', '2026-12-01')]);
     expect(uncovered(r('2026-06-01', '2026-08-01'), [])).toEqual([r('2026-06-01', '2026-08-01')]);
     expect(uncovered(r('2026-06-01', '2026-06-01'), [])).toEqual([]);
+  });
+
+  test('how a stretch stands from the asked ranges', () => {
+    const r = (from: string, to: string) => ({ from, to });
+    const range = r('2026-06-01', '2026-08-01');
+    const none = { answered: [], pending: [], failed: [] };
+    // Read whole, by one range or by two together.
+    expect(coverageState(range, { ...none, answered: [r('2026-07-01', '2026-09-01'), r('2026-05-01', '2026-07-01')] })).toBe('ready');
+    // A part only a failed range covers, while another part is still on its way: failed (Try again).
+    expect(coverageState(range, { ...none, pending: [r('2026-07-01', '2026-08-01')], failed: [r('2026-06-01', '2026-07-01')] })).toBe('failed');
+    // A part nothing covers yet: loading (it is about to be asked), not failed.
+    expect(coverageState(range, { ...none, failed: [r('2026-07-01', '2026-08-01')] })).toBe('loading');
+    expect(coverageState(range, none)).toBe('loading');
+    // A range that answered and failed later still counts as answered: what it read stays.
+    expect(coverageState(range, { ...none, answered: [r('2026-06-01', '2026-08-01')], failed: [r('2026-06-01', '2026-08-01')] })).toBe('ready');
+    expect(overlapping(range, [r('2026-05-01', '2026-06-01'), r('2026-05-15', '2026-06-02'), r('2026-07-31', '2026-09-01'), r('2026-08-01', '2026-09-01')])).toEqual([r('2026-05-15', '2026-06-02'), r('2026-07-31', '2026-09-01')]);
   });
 
   test('a month’s glance needs that month and the one before', () => {
