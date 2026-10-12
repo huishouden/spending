@@ -141,8 +141,8 @@ export interface SpendingStore {
   saveCurrency(code: string): Promise<void>;
   /**
    * Whether `records` has every transaction dated in `range` (the live store follows only recent
-   * ones, src/lib/window.ts): 'loading' until read, 'failed' when reading failed (`need` again
-   * retries). Call `need` first; the sample has everything.
+   * ones, src/lib/window.ts): 'loading' until read, 'failed' when reading failed (`retry` reads it
+   * again; `need` never does). Call `need` first; the sample has everything.
    */
   rangeState(range: DateRange): RangeState;
   /** Follows the transactions dated in `range` too, for the rest of the visit. */

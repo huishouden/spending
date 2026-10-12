@@ -36,6 +36,46 @@ export function beforeWindow(range: DateRange, live: Ymd): DateRange | null {
 
 export const rangeKey = (r: DateRange) => `${r.from}|${r.to}`;
 
+/**
+ * The parts of `range` none of `ranges` covers, oldest first. Asking only for those means a stretch
+ * already followed is never read again: going back a month at a time reads each month once, not
+ * once as a month and again as the month before the next one's.
+ */
+export function uncovered(range: DateRange, ranges: readonly DateRange[]): DateRange[] {
+  let gaps: DateRange[] = range.from < range.to ? [range] : [];
+  for (const r of ranges) {
+    gaps = gaps.flatMap((g) => {
+      if (r.to <= g.from || r.from >= g.to) return [g];
+      const out: DateRange[] = [];
+      if (r.from > g.from) out.push({ from: g.from, to: r.from });
+      if (r.to < g.to) out.push({ from: r.to, to: g.to });
+      return out;
+    });
+  }
+  return gaps;
+}
+
+/** The asked ranges by how they stand: read, failed, or still on their way. */
+export interface AskedRanges {
+  answered: readonly DateRange[];
+  pending: readonly DateRange[];
+  failed: readonly DateRange[];
+}
+
+/**
+ * Whether the asked ranges have all of `range`: 'ready' once the answered ones together cover it;
+ * 'failed' when a part of it only failed ones cover (a person's Try again); 'loading' otherwise,
+ * also for a part nothing covers yet (it is about to be asked).
+ */
+export function coverageState(range: DateRange, { answered, pending, failed }: AskedRanges): 'ready' | 'loading' | 'failed' {
+  if (!uncovered(range, answered).length) return 'ready';
+  const failedOnly = uncovered(range, [...answered, ...pending]).length > 0 && !uncovered(range, [...answered, ...pending, ...failed]).length;
+  return failedOnly ? 'failed' : 'loading';
+}
+
+/** The ranges that share a day with `range`. */
+export const overlapping = <R extends DateRange>(range: DateRange, ranges: readonly R[]): R[] => ranges.filter((r) => r.from < range.to && r.to > range.from);
+
 /** The days a month's glance needs: the month and the one before (its comparison). */
 export function monthRange(key: MonthKey): DateRange {
   return { from: `${addMonth(key, -1)}-01`, to: `${addMonth(key, 1)}-01` };

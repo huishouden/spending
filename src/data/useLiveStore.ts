@@ -10,7 +10,7 @@ import { setHouseholdCurrency } from '@huishouden/pwa-kit/household';
 import { spendingCurrency } from '../lib/month';
 import { t } from '../i18n';
 import { derive, emptyDocs, makeActions, type AlertInboxes, type Docs, type RangeState, type SpendingStore, type Write } from './store';
-import { beforeWindow, liveFrom, mergeRanges, rangeKey, type DateRange } from '../lib/window';
+import { beforeWindow, coverageState, liveFrom, mergeRanges, overlapping, rangeKey, uncovered, type DateRange } from '../lib/window';
 
 /** Firestore takes at most 500 writes per batch. */
 const BATCH = 400;
@@ -144,36 +144,39 @@ export function useLiveStore(householdId: string | null, me: string, fallback: S
     }
   }, [householdId, asked, failed, publish]);
 
-  // Covering asked ranges of this household: the stretch is known once one of them has answered.
-  const covering = useCallback((older: DateRange) => asked.filter((r) => r.hh === householdId && r.from <= older.from && r.to >= older.to), [asked, householdId]);
+  // This household's asked ranges, by state: answered, failed, or still on their way.
+  const mine = useMemo(() => asked.filter((r) => r.hh === householdId), [asked, householdId]);
   const rangeState = useCallback(
     (range: DateRange): RangeState => {
       const older = beforeWindow(range, from);
       if (!older) return 'ready';
-      const list = covering(older);
-      if (list.some((r) => loaded.has(rangeKey(r)))) return 'ready';
-      return list.length && list.every((r) => failed.has(rangeKey(r))) ? 'failed' : 'loading';
+      const state = (r: DateRange) => (loaded.has(rangeKey(r)) ? 'answered' : failed.has(rangeKey(r)) ? 'failed' : 'pending');
+      return coverageState(older, { answered: mine.filter((r) => state(r) === 'answered'), pending: mine.filter((r) => state(r) === 'pending'), failed: mine.filter((r) => state(r) === 'failed') });
     },
-    [from, covering, loaded, failed],
+    [from, mine, loaded, failed],
   );
-  // Stable for a household and window: asking again for a range already asked (or failed) does nothing.
+  // Stable for a household and window: asks only for the parts no range asked before covers (one
+  // that failed included: Try again restarts it), so nothing already followed is read again.
   const need = useCallback(
     (range: DateRange) => {
       const older = beforeWindow(range, from);
       if (!older || !householdId) return;
-      setAsked((a) => (a.some((r) => r.hh === householdId && r.from <= older.from && r.to >= older.to) ? a : [...a, { ...older, hh: householdId }]));
+      setAsked((a) => {
+        const gaps = uncovered(older, a.filter((r) => r.hh === householdId));
+        return gaps.length ? [...a, ...gaps.map((g) => ({ ...g, hh: householdId }))] : a;
+      });
     },
     [from, householdId],
   );
-  // Only from a person's Try again: clears the failure, and the listener starts again.
+  // Only from a person's Try again: clears the failures of the ranges it overlaps, and their listeners start again.
   const retry = useCallback(
     (range: DateRange) => {
       const older = beforeWindow(range, from);
       if (!older) return;
-      const keys = new Set(covering(older).map(rangeKey));
+      const keys = new Set(overlapping(older, mine).map(rangeKey));
       setFailed((f) => new Set([...f].filter((k) => !keys.has(k))));
     },
-    [from, covering],
+    [from, mine],
   );
 
   const actions = useMemo(() => {
