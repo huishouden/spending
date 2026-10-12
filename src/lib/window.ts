@@ -36,6 +36,25 @@ export function beforeWindow(range: DateRange, live: Ymd): DateRange | null {
 
 export const rangeKey = (r: DateRange) => `${r.from}|${r.to}`;
 
+/**
+ * The parts of `range` none of `ranges` covers, oldest first. Asking only for those means a stretch
+ * already followed is never read again: going back a month at a time reads each month once, not
+ * once as a month and again as the month before the next one's.
+ */
+export function uncovered(range: DateRange, ranges: readonly DateRange[]): DateRange[] {
+  let gaps: DateRange[] = range.from < range.to ? [range] : [];
+  for (const r of ranges) {
+    gaps = gaps.flatMap((g) => {
+      if (r.to <= g.from || r.from >= g.to) return [g];
+      const out: DateRange[] = [];
+      if (r.from > g.from) out.push({ from: g.from, to: r.from });
+      if (r.to < g.to) out.push({ from: r.to, to: g.to });
+      return out;
+    });
+  }
+  return gaps;
+}
+
 /** The days a month's glance needs: the month and the one before (its comparison). */
 export function monthRange(key: MonthKey): DateRange {
   return { from: `${addMonth(key, -1)}-01`, to: `${addMonth(key, 1)}-01` };

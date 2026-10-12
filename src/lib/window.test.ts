@@ -4,7 +4,7 @@ import { planImport } from '@huishouden/pwa-kit/spending-core';
 import { detectMapping, parseStatement, readCsv } from './csvImport';
 import { applyWrites, DEFAULT_RULE_DOCS, derive, emptyDocs, makeActions, type Docs, type Write } from '../data/store';
 import { DEFAULT_SPEND_SETTINGS } from '../data/model';
-import { beforeWindow, liveFrom, mergeRanges, monthRange, monthsSince, rangeKey, statementRange } from './window';
+import { beforeWindow, liveFrom, mergeRanges, monthRange, monthsSince, rangeKey, statementRange, uncovered } from './window';
 
 describe('the live window', () => {
   test('starts on last month’s first day, or 40 days back when that is earlier', () => {
@@ -20,6 +20,16 @@ describe('the live window', () => {
     expect(beforeWindow({ from: '2026-08-01', to: '2026-10-01' }, '2026-09-01')).toEqual({ from: '2026-08-01', to: '2026-09-01' });
     expect(beforeWindow({ from: '2026-08-01', to: '2026-08-01' }, '2026-09-01')).toBeNull();
     expect(rangeKey({ from: '2026-06-01', to: '2026-08-01' })).toBe('2026-06-01|2026-08-01');
+  });
+
+  test('only the parts no range asked before covers are asked', () => {
+    const r = (from: string, to: string) => ({ from, to });
+    // Back a month at a time: each step asks only the month new to it.
+    expect(uncovered(r('2026-06-01', '2026-08-01'), [r('2026-07-01', '2026-09-01')])).toEqual([r('2026-06-01', '2026-07-01')]);
+    expect(uncovered(r('2026-06-01', '2026-08-01'), [r('2026-05-01', '2026-09-01')])).toEqual([]);
+    expect(uncovered(r('2026-01-01', '2026-12-01'), [r('2026-03-01', '2026-04-01'), r('2026-06-01', '2026-07-01')])).toEqual([r('2026-01-01', '2026-03-01'), r('2026-04-01', '2026-06-01'), r('2026-07-01', '2026-12-01')]);
+    expect(uncovered(r('2026-06-01', '2026-08-01'), [])).toEqual([r('2026-06-01', '2026-08-01')]);
+    expect(uncovered(r('2026-06-01', '2026-06-01'), [])).toEqual([]);
   });
 
   test('a month’s glance needs that month and the one before', () => {

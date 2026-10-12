@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import fixture from './fixtures/mirror-rows.json';
+import { billedReads } from '@huishouden/pwa-kit/read-budget';
 
 // Firestore.gs is plain Apps Script; only its pure helpers run here.
 const ctx = vm.createContext({});
@@ -81,4 +82,51 @@ test('chunkString splits under the Script Properties value cap and round-trips',
   const chunks = chunkString(s, 8000);
   expect(chunks.map((c) => c.length)).toEqual([8000, 8000, 4001]);
   expect(chunks.join('')).toBe(s);
+});
+
+// Read budget (pwa-kit STANDARD.md "Read budgets"): a mirror run is billed as Firestore bills the
+// requests it makes (`billedReads`, the Workers' rule). It reads only to find the household once,
+// then writes; each later run reads nothing.
+describe('mirrorSheetToFirestore read budget', () => {
+  const HH = 'households/h1';
+  function sandbox() {
+    const props = new Map<string, string>();
+    const calls: { method: string; url: string; reads: number }[] = [];
+    const sb = vm.createContext({
+      UrlFetchApp: {
+        fetch(url: string, o: { method: string; payload?: string }) {
+          const body = o.method === 'get' ? { documents: [{ name: `projects/p/databases/(default)/documents/${HH}` }] } : {};
+          calls.push({ method: o.method, url, reads: billedReads(o.method, url, 200, body, o.payload ? JSON.parse(o.payload) : undefined) });
+          return { getResponseCode: () => 200, getContentText: () => JSON.stringify(body) };
+        },
+      },
+      PropertiesService: {
+        getScriptProperties: () => ({
+          getProperty: (k: string) => props.get(k) ?? null,
+          setProperty: (k: string, v: string) => void props.set(k, v),
+          getProperties: () => Object.fromEntries(props),
+          setProperties: (v: Record<string, string>) => Object.entries(v).forEach(([k, x]) => props.set(k, x)),
+          deleteProperty: (k: string) => void props.delete(k),
+        }),
+      },
+      ScriptApp: { getOAuthToken: () => 'test-token' },
+      Session: { getScriptTimeZone: () => 'GMT' },
+      Utilities: { formatDate: (d: Date) => d.toISOString().slice(0, 10) },
+      Logger: { log: () => undefined },
+      getTargetSheet: () => ({ getLastRow: () => fixture.rows.length + 1, getRange: () => ({ getValues: () => fixture.rows.map((r) => r.slice()) }) }),
+    });
+    vm.runInContext(readFileSync(new URL('./Firestore.gs', import.meta.url), 'utf8') + ';globalThis.mirror = mirrorSheetToFirestore;', sb);
+    return { run: () => (sb as unknown as { mirror: () => { upserted: number } }).mirror(), calls };
+  }
+  const reads = (calls: { reads: number }[]) => calls.reduce((n, c) => n + c.reads, 0);
+
+  test('the first run: one list of the households (1 read), then the writes; the next run: none', () => {
+    const { run, calls } = sandbox();
+    expect(run().upserted).toBe(3);
+    expect(reads(calls)).toBe(1);
+    calls.length = 0;
+    run();
+    expect(reads(calls)).toBe(0);
+    expect(calls).toHaveLength(0);
+  });
 });
