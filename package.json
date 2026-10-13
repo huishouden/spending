@@ -19,7 +19,7 @@
     "prepare": "git config core.hooksPath .githooks",
     "screenshots": "playwright test e2e/screenshots.spec.ts",
     "env:pull": "gh variable list --json name,value -q '.[] | select(.name|startswith(\"STAGING_VITE_\")) | \"\\(.name|sub(\"^STAGING_\";\"\"))=\\(.value)\"' > .env.local && echo 'wrote .env.local from the STAGING_VITE_* variables (staging project, never production)'",
-    "e2e:emulator": "playwright test e2e/signed-in.spec.ts e2e/reads.spec.ts --grep-invert @staging"
+    "e2e:emulator": "playwright test e2e/signed-in.spec.ts e2e/reads.spec.ts e2e/updates.spec.ts --grep-invert @staging"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

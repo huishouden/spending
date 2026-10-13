@@ -6,7 +6,7 @@ import { householdRole, refusal } from '@huishouden/pwa-kit/roles';
 import { seesMoney } from './lib/access';
 import { popupCancelled } from '@huishouden/pwa-kit/feedback';
 import { ClockProvider } from '@huishouden/pwa-kit/react/clock';
-import { cardClass, primaryButton, SampleBanner, useToast } from '@huishouden/pwa-kit/react/ui';
+import { cardClass, primaryButton, SampleBanner, ScreenSkeleton, useToast } from '@huishouden/pwa-kit/react/ui';
 import { auth, googleClientId, signInWithGoogle, signOutEverywhere } from './services/auth';
 import { getDb } from './services/firestoreTransactions';
 import { useLiveStore } from './data/useLiveStore';
@@ -44,7 +44,8 @@ export default function App() {
   const signOut = useCallback(() => void signOutEverywhere(), []);
   const frame: FrameProps = { user, onSignIn: signIn, onSignOut: signOut, signingIn };
 
-  if (user === undefined) return <Frame {...frame} />;
+  // While the session restores: the frame over the kit's placeholder, so nothing flashes or jumps.
+  if (user === undefined) return <Opening frame={frame} />;
   // `?sample=helper`: what a helper or kid sees when signed in, for screenshots and tests.
   if (user === null && new URLSearchParams(location.search).get('sample') === 'helper') return <MoneyRefusal frame={frame} />;
   if (user === null) return <SampleApp frame={frame} signInError={signInError} />;
@@ -67,7 +68,7 @@ function SignedIn({ user, frame }: { user: User; frame: FrameProps }) {
   // Helpers and kids never see the household's money (the rules refuse every read): no listeners, no email checks.
   if (state.status === 'ready' && !seesMoney(state.household, email)) return <MoneyRefusal frame={frame} />;
   if (state.status === 'ready') return <LiveApp householdId={state.household.id} currency={state.household.currency} email={email} isAdmin={householdRole(state.household, email) === 'admin'} frame={frame} />;
-  if (state.status === 'loading') return <Note frame={frame}>{t('household.finding')}</Note>;
+  if (state.status === 'loading') return <Opening frame={frame} label={t('household.finding')} />;
   if (state.status === 'error') return <Note frame={frame}>{t('household.unreachable')}</Note>;
   return (
     <Note frame={frame}>
@@ -119,6 +120,16 @@ function MoneyRefusal({ frame }: { frame: FrameProps }) {
         {t('household.openPortal')}
       </a>
     </Note>
+  );
+}
+
+/** While the app opens (the session restoring, the household loading): the frame over the kit's placeholder. */
+function Opening({ frame, label }: { frame: FrameProps; label?: string }) {
+  const t = useT();
+  return (
+    <Frame {...frame}>
+      <ScreenSkeleton label={label ?? t('app.loading')} />
+    </Frame>
   );
 }
 
