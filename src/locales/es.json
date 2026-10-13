@@ -1,12 +1,10 @@
 {
   "app.name": "Gastos",
   "app.title": "Huishouden Gastos",
-  "app.loading": "Cargando los gastos del hogar",
   "app.loadingMonth": "Cargando las compras de este mes",
   "app.tryAgain": "Reintentar",
   "app.monthFailed": "No se pudieron cargar las compras de este mes.",
   "signIn.failed": "No se pudo iniciar sesión. Inténtalo de nuevo.",
-  "household.finding": "Buscando tu hogar.",
   "household.unreachable": "No se pudo conectar con el hogar. Revisa la conexión; la app vuelve a intentarlo sola.",
   "household.noneTitle": "Todavía no estás en un hogar",
   "household.noneBody": "{email} no está en ningún hogar de Huishouden. Crea uno en la pantalla de inicio de Huishouden o pídele a alguien de tu hogar que invite esta dirección, y luego vuelve a abrir Gastos.",
