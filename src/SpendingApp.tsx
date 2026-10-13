@@ -21,7 +21,6 @@ import { SettingsDialog, type SettingsTab } from './components/SettingsDialog';
 import { googleRedirectReturned } from '@huishouden/pwa-kit/google-token';
 import { useT } from './i18n';
 
-export type { FrameProps } from './components/frame';
 
 interface Props {
   store: SpendingStore;
