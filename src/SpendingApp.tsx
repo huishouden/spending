@@ -122,7 +122,7 @@ export function SpendingApp({ store, frame, toasts, banner }: Props) {
     document.title = title;
   }, [title]);
 
-  const goMonth = (k: MonthKey) => setMonthParam(k === monthOf(today) ? null : k, { also: { category: null } });
+  const goMonth = (k: MonthKey) => setMonthParam(k === monthOf(today) ? null : k, { also: { category: null, purchase: null } });
 
   return (
     // Not while loading: the settings dialog takes its fields from the household's settings once, on opening.
