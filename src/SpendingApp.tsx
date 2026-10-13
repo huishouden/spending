@@ -99,7 +99,8 @@ export function SpendingApp({ store, frame, toasts, banner }: Props) {
   const shell = spendingFrame(t, frame);
   // The first data still on its way: the opening frame, which counts no view and offers no settings
   // (the settings dialog takes its fields from the household's settings once, on opening).
-  if (!store.ready) return <AppOpening {...shell} phase="data" />;
+  // The toast stays mounted: a first load that fails says so (useLiveStore reports it there).
+  if (!store.ready) return <AppOpening {...shell} phase="data" after={<Toast toast={toast} onDone={clear} />} />;
 
   return (
     // Anonymous counts of what is used, per visit (the portal's /privacy page): the frame counts `view`.
