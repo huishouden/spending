@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { captureScreenshot, openAppSettings } from '@huishouden/pwa-kit/e2e';
+import { captureOpening, captureScreenshot, openAppSettings } from '@huishouden/pwa-kit/e2e';
 
 // README images of the signed-out app, which shows its built-in sample household (invented cards,
 // shops and amounts) on the sample's own clock, so every run renders the same month.
@@ -7,6 +7,9 @@ import { captureScreenshot, openAppSettings } from '@huishouden/pwa-kit/e2e';
 
 const statement = new URL('./fixtures/statement_1111.csv', import.meta.url).pathname;
 const phone = (page: Page) => page.setViewportSize({ width: 390, height: 844 });
+
+// The frame while the app opens (the session restoring), held there: the kit's AppOpening.
+test('opening', ({ page }) => captureOpening(page));
 
 // The glance: this month against the budget, where it went, the latest purchases.
 test('dashboard', ({ page }) => captureScreenshot(page, 'dashboard'));

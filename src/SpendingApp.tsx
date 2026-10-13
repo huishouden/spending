@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AppBar, type AppBarUser } from '@huishouden/pwa-kit/react/app-bar';
+import { AppFrame, AppOpening } from '@huishouden/pwa-kit/react/frame';
 import { useClock } from '@huishouden/pwa-kit/react/clock';
-import { ScreenSkeleton, secondaryButton, Toast, type useToast } from '@huishouden/pwa-kit/react/ui';
+import { secondaryButton, Toast, type useToast } from '@huishouden/pwa-kit/react/ui';
 import { useUrlParam } from '@huishouden/pwa-kit/react/url-state';
 import { toYmd } from '@huishouden/pwa-kit/time';
 import { track, trackView } from '@huishouden/pwa-kit/observability';
@@ -10,7 +10,7 @@ import type { SpendingRecord } from './data/model';
 import { useEmailCheck } from './data/useEmailCheck';
 import { counted, monthOf, months, summarise, type CategoryTotal, type MonthKey } from './lib/month';
 import { monthRange, monthsSince } from './lib/window';
-import { PORTAL_URL } from './config/portal';
+import { spendingFrame, type FrameProps } from './components/frame';
 import { Glance } from './components/Glance';
 import { WhereItWent } from './components/WhereItWent';
 import { Purchases } from './components/Purchases';
@@ -21,30 +21,6 @@ import { SettingsDialog, type SettingsTab } from './components/SettingsDialog';
 import { googleRedirectReturned } from '@huishouden/pwa-kit/google-token';
 import { useT } from './i18n';
 
-const VERSION = `${import.meta.env.VITE_APP_VERSION} (${import.meta.env.VITE_BUILD_SHA})`;
-
-export interface FrameProps {
-  /** Undefined while the session is being restored: neither the avatar nor Sign in shows. */
-  user: AppBarUser | null | undefined;
-  onSignIn: () => void;
-  onSignOut: () => void;
-  signingIn: boolean;
-}
-
-/** The Huishouden app bar and the page under it. */
-export function Frame({ user, onSignIn, onSignOut, signingIn, onSettings, actions, children }: FrameProps & { onSettings?: () => void; actions?: ReactNode; children?: ReactNode }) {
-  const t = useT();
-  return (
-    <div className="flex min-h-dvh flex-col bg-page font-sans text-ink antialiased lg:h-dvh lg:overflow-hidden">
-      <AppBar app={t('app.name')} glyph="card" portalUrl={PORTAL_URL} version={VERSION} user={user} signingIn={signingIn} onSignIn={onSignIn} onSignOut={onSignOut} onSettings={onSettings} settingsLabel={t('settings.open')}>
-        {actions}
-      </AppBar>
-      <main className="mx-auto flex w-full max-w-[1200px] min-h-0 flex-1 flex-col gap-4 px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-6 sm:pb-6">
-        {children}
-      </main>
-    </div>
-  );
-}
 
 interface Props {
   store: SpendingStore;
@@ -73,10 +49,6 @@ export function SpendingApp({ store, frame, toasts, banner }: Props) {
   const [importing, setImporting] = useState(false);
   // Back from Google's account chooser in this tab ("Continue in this tab"): the inbox, where it connects.
   const [settings, setSettings] = useState<SettingsTab | null>(() => (googleRedirectReturned() ? 'email' : null));
-  // Anonymous counts of what is used, per visit (the portal's /privacy page).
-  useEffect(() => {
-    trackView(settings ? `settings:${settings}` : category ? 'category' : 'overview');
-  }, [settings, category]);
   useEffect(() => {
     if (adding) track('add spending');
   }, [adding]);
@@ -124,14 +96,17 @@ export function SpendingApp({ store, frame, toasts, banner }: Props) {
 
   const goMonth = (k: MonthKey) => setMonthParam(k === monthOf(today) ? null : k, { also: { category: null, purchase: null } });
 
+  const shell = spendingFrame(t, frame);
+  // The first data still on its way: the opening frame, which counts no view and offers no settings
+  // (the settings dialog takes its fields from the household's settings once, on opening).
+  // The toast stays mounted: a first load that fails says so (useLiveStore reports it there).
+  if (!store.ready) return <AppOpening {...shell} phase="data" after={<Toast toast={toast} onDone={clear} />} />;
+
   return (
-    // Not while loading: the settings dialog takes its fields from the household's settings once, on opening.
-    <Frame {...frame} onSettings={store.ready ? () => setSettings('budget') : undefined}>
+    // Anonymous counts of what is used, per visit (the portal's /privacy page): the frame counts `view`.
+    <AppFrame {...shell} onSettings={() => setSettings('budget')} settingsLabel={t('settings.open')} onView={trackView} view={settings ? `settings:${settings}` : category ? 'category' : 'overview'}>
       {banner}
-      {!store.ready ? (
-        <ScreenSkeleton label={t('app.loading')} />
-      ) : (
-        <>
+      <>
           <Glance loading={monthLoading} summary={summary} months={shownMonths} onMonth={goMonth} currency={currency} store={store} now={now} email={email} onAdd={() => setAdding(true)} onRetry={checkEmail} onInboxes={() => setSettings('email')} />
           {monthLoading ? (
             monthState === 'failed' ? (
@@ -150,8 +125,7 @@ export function SpendingApp({ store, frame, toasts, banner }: Props) {
             <Purchases summary={summary} category={shownCategory ?? null} currency={currency} today={today} onOpen={setOpen} onAll={() => setCategory(null)} />
           </div>
           )}
-        </>
-      )}
+      </>
 
       {open && <PurchaseDialog record={open} store={store} today={today} notify={notify} onClose={() => setOpen(null)} />}
       {adding && (
@@ -168,6 +142,6 @@ export function SpendingApp({ store, frame, toasts, banner }: Props) {
       {importing && <ImportDialog store={store} onClose={() => setImporting(false)} onDone={notify} />}
       {settings && <SettingsDialog store={store} tab={settings} onTab={setSettings} notify={notify} onClose={() => setSettings(null)} />}
       <Toast toast={toast} onDone={clear} />
-    </Frame>
+    </AppFrame>
   );
 }

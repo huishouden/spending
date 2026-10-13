@@ -19,6 +19,10 @@ huishouden-spending.web.app, redirects there.
 |---|---|
 | ![Add spending](docs/screenshots/add-spending.png) | ![Settings](docs/screenshots/settings-budget.png) |
 
+| Opening |
+|---|
+| ![While Spending opens: the app bar already in place over a placeholder, so nothing moves when the month arrives](docs/screenshots/opening.png) |
+
 _Screenshots of the live site with its built-in sample household (invented cards and amounts),
 refreshed by CI after each deploy._
 

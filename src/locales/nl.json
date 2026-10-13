@@ -1,12 +1,10 @@
 {
   "app.name": "Uitgaven",
   "app.title": "Huishouden Uitgaven",
-  "app.loading": "De uitgaven van het huishouden laden",
   "app.loadingMonth": "De aankopen van deze maand laden",
   "app.tryAgain": "Opnieuw proberen",
   "app.monthFailed": "De aankopen van deze maand konden niet geladen worden.",
   "signIn.failed": "Inloggen lukte niet. Probeer het opnieuw.",
-  "household.finding": "Je huishouden zoeken.",
   "household.unreachable": "Het huishouden is niet bereikbaar. Controleer de verbinding; de app probeert het zelf opnieuw.",
   "household.noneTitle": "Nog niet in een huishouden",
   "household.noneBody": "{email} zit nog niet in een Huishouden-huishouden. Begin er een op het Huishouden-startscherm of vraag iemand uit je huishouden om dit adres uit te nodigen, en open daarna Uitgaven opnieuw.",

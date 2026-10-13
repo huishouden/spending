@@ -6,7 +6,7 @@ import { householdRole, refusal } from '@huishouden/pwa-kit/roles';
 import { seesMoney } from './lib/access';
 import { popupCancelled } from '@huishouden/pwa-kit/feedback';
 import { ClockProvider } from '@huishouden/pwa-kit/react/clock';
-import { cardClass, primaryButton, SampleBanner, ScreenSkeleton, useToast } from '@huishouden/pwa-kit/react/ui';
+import { cardClass, primaryButton, SampleBanner, useToast } from '@huishouden/pwa-kit/react/ui';
 import { auth, googleClientId, signInWithGoogle, signOutEverywhere } from './services/auth';
 import { getDb } from './services/firestoreTransactions';
 import { useLiveStore } from './data/useLiveStore';
@@ -14,7 +14,9 @@ import { chooserCode, chooserRedirect, chooserReturn, useAlertInboxes } from './
 import { SAMPLE_NOW, useSampleStore } from './data/sample';
 import { DEFAULT_SPEND_SETTINGS } from './data/model';
 import { PORTAL_URL } from './config/portal';
-import { Frame, SpendingApp, type FrameProps } from './SpendingApp';
+import { AppFrame } from '@huishouden/pwa-kit/react/frame';
+import { SpendingApp } from './SpendingApp';
+import { SpendingOpening, spendingFrame, type FrameProps } from './components/frame';
 import { t, useT } from './i18n';
 
 /** Who is here decides what shows: the sample household, a "not in a household yet" note, or the household's own spending. */
@@ -44,8 +46,8 @@ export default function App() {
   const signOut = useCallback(() => void signOutEverywhere(), []);
   const frame: FrameProps = { user, onSignIn: signIn, onSignOut: signOut, signingIn };
 
-  // While the session restores: the frame over the kit's placeholder, so nothing flashes or jumps.
-  if (user === undefined) return <Opening frame={frame} />;
+  // While the session restores: the kit's opening frame, so nothing flashes or jumps.
+  if (user === undefined) return <SpendingOpening frame={frame} phase="session" />;
   // `?sample=helper`: what a helper or kid sees when signed in, for screenshots and tests.
   if (user === null && new URLSearchParams(location.search).get('sample') === 'helper') return <MoneyRefusal frame={frame} />;
   if (user === null) return <SampleApp frame={frame} signInError={signInError} />;
@@ -68,7 +70,7 @@ function SignedIn({ user, frame }: { user: User; frame: FrameProps }) {
   // Helpers and kids never see the household's money (the rules refuse every read): no listeners, no email checks.
   if (state.status === 'ready' && !seesMoney(state.household, email)) return <MoneyRefusal frame={frame} />;
   if (state.status === 'ready') return <LiveApp householdId={state.household.id} currency={state.household.currency} email={email} isAdmin={householdRole(state.household, email) === 'admin'} frame={frame} />;
-  if (state.status === 'loading') return <Opening frame={frame} label={t('household.finding')} />;
+  if (state.status === 'loading') return <SpendingOpening frame={frame} phase="household" />;
   if (state.status === 'error') return <Note frame={frame}>{t('household.unreachable')}</Note>;
   return (
     <Note frame={frame}>
@@ -123,20 +125,11 @@ function MoneyRefusal({ frame }: { frame: FrameProps }) {
   );
 }
 
-/** While the app opens (the session restoring, the household loading): the frame over the kit's placeholder. */
-function Opening({ frame, label }: { frame: FrameProps; label?: string }) {
+function Note({ frame, children }: { frame: FrameProps; children: ReactNode }) {
   const t = useT();
   return (
-    <Frame {...frame}>
-      <ScreenSkeleton label={label ?? t('app.loading')} />
-    </Frame>
-  );
-}
-
-function Note({ frame, children }: { frame: FrameProps; children: ReactNode }) {
-  return (
-    <Frame {...frame}>
+    <AppFrame {...spendingFrame(t, frame)}>
       <div className={`${cardClass} max-w-2xl p-6 text-lg text-muted`}>{children}</div>
-    </Frame>
+    </AppFrame>
   );
 }
