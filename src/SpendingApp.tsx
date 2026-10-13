@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AppBar, type AppBarUser } from '@huishouden/pwa-kit/react/app-bar';
 import { useClock } from '@huishouden/pwa-kit/react/clock';
-import { secondaryButton, Toast, type useToast } from '@huishouden/pwa-kit/react/ui';
+import { ScreenSkeleton, secondaryButton, Toast, type useToast } from '@huishouden/pwa-kit/react/ui';
+import { useUrlParam } from '@huishouden/pwa-kit/react/url-state';
 import { toYmd } from '@huishouden/pwa-kit/time';
 import { track, trackView } from '@huishouden/pwa-kit/observability';
 import type { SpendingStore } from './data/store';
@@ -59,9 +60,15 @@ export function SpendingApp({ store, frame, toasts, banner }: Props) {
   const { now } = useClock();
   const today = toYmd(now);
   const { notify, toast, clear } = toasts;
-  const [month, setMonth] = useState<MonthKey | null>(null);
-  const [category, setCategory] = useState<CategoryTotal | null>(null);
-  const [open, setOpen] = useState<SpendingRecord | null>(null);
+  // The month, the category and the purchase on screen live in the address, so a reload (an
+  // update) and Back return to them: `?month=2031-04&category=Groceries&purchase=<id>`.
+  const [monthParam, setMonthParam] = useUrlParam('month');
+  const month: MonthKey | null = monthParam && /^\d{4}-\d{2}$/.test(monthParam) ? monthParam : null;
+  const [category, setCategoryParam] = useUrlParam('category');
+  const setCategory = (c: CategoryTotal | null) => setCategoryParam(c?.name ?? null);
+  const [openId, setOpenId] = useUrlParam('purchase');
+  const open = useMemo(() => (openId ? store.records.find((r) => r.id === openId) ?? null : null), [openId, store.records]);
+  const setOpen = (r: SpendingRecord | null) => setOpenId(r?.id ?? null, { replace: true });
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
   // Back from Google's account chooser in this tab ("Continue in this tab"): the inbox, where it connects.
@@ -88,7 +95,7 @@ export function SpendingApp({ store, frame, toasts, banner }: Props) {
   const summary = useMemo(() => summarise(purchases, key, today, store.settings.monthlyBudget), [purchases, key, today, store.settings.monthlyBudget]);
   const currency = store.currency;
   // The open category follows the data (a purchase moved out of it, a month changed).
-  const shownCategory = category && summary.categories.find((c) => c.name === category.name);
+  const shownCategory = category ? summary.categories.find((c) => c.name === category) : undefined;
 
   const email = useEmailCheck(store);
   const asked = useRef(false);
@@ -115,17 +122,14 @@ export function SpendingApp({ store, frame, toasts, banner }: Props) {
     document.title = title;
   }, [title]);
 
-  const goMonth = (k: MonthKey) => {
-    setMonth(k === monthOf(today) ? null : k);
-    setCategory(null);
-  };
+  const goMonth = (k: MonthKey) => setMonthParam(k === monthOf(today) ? null : k, { also: { category: null, purchase: null } });
 
   return (
     // Not while loading: the settings dialog takes its fields from the household's settings once, on opening.
     <Frame {...frame} onSettings={store.ready ? () => setSettings('budget') : undefined}>
       {banner}
       {!store.ready ? (
-        <p className="p-2 text-lg text-muted">{t('app.loading')}</p>
+        <ScreenSkeleton label={t('app.loading')} />
       ) : (
         <>
           <Glance loading={monthLoading} summary={summary} months={shownMonths} onMonth={goMonth} currency={currency} store={store} now={now} email={email} onAdd={() => setAdding(true)} onRetry={checkEmail} onInboxes={() => setSettings('email')} />

@@ -37,6 +37,10 @@ household's data in Firestore under `households/{id}/`:
 | Alert inboxes: the Gmail accounts card alerts arrive at (any account, not only the one signed in) | Settings > Email > Connect alert inbox: Google's account chooser, read-only Gmail. Any admin or member; several allowed | `spendingInboxes` (address, who connected it, last result); the access itself only in the calendar Worker, sealed |
 | Card purchase alert emails | Checked every 5 minutes by the calendar Worker, with no app open, as the member who connected each inbox: each card's alert words and the household's labels, parsed by the kit's `spending-core` exactly as the app would (`readAlert`: only purchases a rule reads with confidence; the rest is left alone or listed for review). Add spending > Check email and Settings > Email > Check now check at once; the Overview says when they last ran ("Updated 3 minutes ago from email") | `spendingTransactions` (`source: alert`) |
 
+The month, the category and the purchase on screen are kept in the page's address (`?month=`,
+`?category=`, `?purchase=`), so reloading, sharing a link, or Back and Forward return to the same
+screen. A new version of the app never reloads the page while it is in use (the kit's `startUpdates`).
+
 Every import is categorised by the household's rules and de-duplicated against what is there: the
 same card and amount within 3 days with a similar description is the same purchase (the Apps
 Script's rule, plus the description check). A statement row replaces the email alert for the same
